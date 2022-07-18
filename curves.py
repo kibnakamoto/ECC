@@ -1,7 +1,20 @@
 import secrets
+import math
 
-# implementation of ECIAS and secp521r1
+# implementation of secp521r1 and weistress curve
 
+class Weierstrass:
+    # x and y coordinates of points should satisfy the following equation:
+    # y2 = x3 + Ax + B
+    def multiply(self,pointG: tuple, prikey: int, p: int, a: int, b: int):
+        if prikey == 0:
+            return math.inf
+        
+        if (pointG[1]**2)%p == (pointG[0]**3 + a*pointG[0] + b) % p:
+            return ((prikey*pointG[0])%p, (prikey*pointG[1])%p)
+        else:
+            raise Exception("parameters do not satisfy equation")
+        
 class Secp521r1:
     def __init__(self):
         self.p = 0x1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -19,12 +32,16 @@ class Secp521r1:
     def get_privkey(self, pri_k=0):
         # numbers from 1 to n-1. But 1 is not given as the starting range
         if(pri_k == 0):
-            self.pri_k = secrets.randbelow(n-1)
+            self.pri_k = secrets.randbelow(self.n-1)
         else:
             self.pri_k = pri_k
     
     def get_pubkey(self):
         self.pub_k = self.pri_k*self.G
-        self.keypair = (self.pri_k,self.pub_k)
-    
-    
+
+weierstrass = Weierstrass()
+secp521r1 = Secp521r1()
+secp521r1.get_privkey()
+print("pri_k:\t", secp521r1.pri_k)
+print("point:\t:",weierstrass.multiply((secp521r1.G[0],secp521r1.G[1]),
+                  secp521r1.pri_k,secp521r1.p,secp521r1.a,secp521r1.b))
