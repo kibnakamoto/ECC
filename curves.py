@@ -15,11 +15,13 @@ class Weierstrass:
     def point_add(self, xp, yp, xq, yq):
         # equation for private key and pointG
         # find lambda
-        __lambda = ((yq-yp)*pow(xq-xp, self.p-xq-xp,
-                                self.p)) % self.p
-        xr = __lambda**2 - xp - xq
-        yr = __lambda*(xp-xr) - yp
-        return (xr%self.p,yr%self.p)
+        if yp == yq or xp == xq:
+            __lambda = ((3*(xp**2) + self.a)*pow(2*yp, self.p-2*yp, self.p)) % self.p
+        else:
+            __lambda = ((yq-yp)*pow(xq-xp, -1, self.p)) % self.p
+        xr = (__lambda**2 - xp - xq) % self.p
+        yr = (__lambda*(xp-xr) - yp) % self.p
+        return (xr%self.p, yr%self.p)
 
     def point_double(self, x, y):
         __lambda = ((3*(x**2) + self.a)*pow(2*y, self.p-2*y, 
@@ -65,22 +67,22 @@ class Weierstrass:
             #                                        pointG[0],
             #                                        pointG[1])
             #     i-=1
-            r0 = [0,0]
+            r0 = (0,1)
             r1 = list(self.pointG)
             bits = bin(self.prikey)[2:]
-            for i in range(len(bits)-1,0,-1):
+            for i in range(len(bits)-1,-1,-1):
                 if bits[i] == '0':
-                    r1 = weierstrass.point_add(r0[0],r0[1],r1[0],
-                                               r1[1])
+                    r1 = weierstrass.point_add(r0[0],r0[1],
+                                               r1[0],r1[1])
                     r0 = weierstrass.point_double(r0[0],r0[1])
                 else:
-                    r0 = weierstrass.point_add(r0[0],r0[1],r1[0],
-                                               r0[1])
+                    r0 = weierstrass.point_add(r0[0],r0[1],
+                                               r1[0],r0[1])
                     r1 = weierstrass.point_double(r1[0],r1[1])
             return (r0[0],r0[1])
             
             # result = weierstrass.rec_mul(self.pointG, self.prikey)
-            return (result[0]%self.p,result[1]%self.p)
+            # return (result[0]%self.p,result[1]%self.p)
             
             # return ((prikey*pointG[0])%p, (prikey*pointG[1])%p)
         else:
