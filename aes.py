@@ -1,7 +1,7 @@
 """
-*   Author: Taha Canturk
-*   Github: Kibnakamoto
-*  Repisotory: ECC
+*  Author: Taha Canturk
+*  Github: Kibnakamoto
+* Repisotory: ECC
 * Start Date: July 21, 2022
 * Finalized:  July 22, 2022 
 """
