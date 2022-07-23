@@ -7,6 +7,7 @@
 """
 
 import secrets # for optional key generation for encryption
+import numpy as np
 
 class Aes:
     def __init__(self, Nb: int, Nk: int, Nr: int):
@@ -72,193 +73,191 @@ class Aes:
         self.rcon = (0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20,
                      0x40, 0x80, 0x1b, 0x36)
     # Operations
-    class Ops:
-        # galois field 2**8 multipication
-        def gf256(self,x,y):
-            p=0
-            for i in range(8):
-                p ^= ((y&1)&1)
-                x = (x<<1) ^ (0x11b & -((x>>7)&1))
-                y>>=1
-            return p
-        
-        # bitwise circular-left-shift operator for rotating by 8 bits.
-        def rotword(self,x):
-            return (x<<8)|(x>>24)
+    # galois field 2**8 multipication
+    def gf256(self,x,y):
+        p=0
+        for i in range(8):
+            p ^= ((y&1)&1)
+            x = (x<<1) ^ (0x11b & -((x>>7)&1))
+            y>>=1
+        return p
+    
+    # bitwise circular-left-shift operator for rotating by 8 bits.
+    def rotword(self,x):
+        return (x<<8)|(x>>24)
 
-        """ Encryption Operations """
-        def subbytes(self):
-            # seperates hex byte into 2 nibbles and use them as index to
-            # sub in values as index of s-box
-            for r in range(4):
-                for c in range(self.Nb):
-                    bottom_mask = self.state[r][c] & 0x0f
-                    top_mask = self.state[r][c] >> 4
-                    self.state[r][c] = self.sbox[top_mask][bottom_mask]
-
-        def shiftrows(self):
-            # to stop values from overriding, use 2 arrays with the same values
-            pre_state = self.state
-            
-            # ShiftRows operation. First row is not changed
-            for r in range(1,4):
-                for c in range(self.Nb):
-                    self.state[r][c] = pre_state[r][(r+c)%4];
-
-        def mixcolumns(self):
-            # xtime function from AES proposal
-            xtime = lambda x : ((x<<1) ^ (((x>>7) & 1) * 0x1b))
-            
+    """ Encryption Operations """
+    def subbytes(self):
+        # seperates hex byte into 2 nibbles and use them as index to
+        # sub in values as index of s-box
+        for r in range(4):
             for c in range(self.Nb):
-                # create temporary array to stop overriding
-                tmp_s = [self.state[0][c], self.state[1][c],
-                         self.state[2][c], self.state[3][c]]
-                
-                # mix columns operation
-                tmp = (tmp_s[0] ^ tmp_s[1] ^ tmp_s[2] ^ tmp_s[3])
-                tm =  (tmp_s[0] ^ tmp_s[1]) ; tm = xtime(tm)
-                self.state[0][c] ^= (tm ^ tmp)
-                tm =          (tmp_s[1] ^ tmp_s[2]) ; tm = xtime(tm)
-                self.state[1][c] ^= (tm ^ tmp)
-                tm =          (tmp_s[2] ^ tmp_s[3]) ; tm = xtime(tm)
-                self.state[2][c] ^= (tm ^ tmp)
-                tm =          (tmp_s[3] ^ tmp_s[0]) ; tm = xtime(tm)
-                self.state[3][c] ^= (tm ^ tmp)
+                bottom_mask = self.state[r][c] & 0x0f
+                top_mask = self.state[r][c] >> 4
+                self.state[r][c] = self.sbox[top_mask][bottom_mask]
+
+    def shiftrows(self):
+        # to stop values from overriding, use 2 arrays with the same values
+        pre_state = self.state
         
-        def subword(self,x):
-            sub_int = lambda y : self.sbox[(y&0xff)>>4][y&0x0f]
-            return (self.sub_int(x>>24)<<24) | \
-                   (self.sub_int((x>>16)&0xff)<<16) | \
-                   (self.sub_int((x>>8)&0xff)<<8) | \
-                   (self.sub_int(x&0xff))
+        # ShiftRows operation. First row is not changed
+        for r in range(1,4):
+            for c in range(self.Nb):
+                self.state[r][c] = pre_state[r][(r+c)%4];
+
+    def mixcolumns(self):
+        # xtime function from AES proposal
+        xtime = lambda x : ((x<<1) ^ (((x>>7) & 1) * 0x1b))
         
-        def addroundkey(self,w,rnd):
-            for i in range(self.Nb):
-                w_index = w[rnd*4+c]
-                self.state[0][c] ^= (w_index >> 24) & 0xff
-                self.state[1][c] ^= (w_index >> 16) & 0xff
-                self.state[2][c] ^= (w_index >> 8) & 0xff
-                self.state[3][c] ^= w_index & 0xff
-        
-        # Decryption
-        def inv_subbytes(self):
-            for r in range(4):
-                for c in range(self.Nb):
-                    bottom_mask = self.state[r][c]&0x0f
-                    top_mask = self.state[r][c] >> 4
-                    self.state = self.inv_sbox[top_mask][bottom_mask]
-        
-        def inv_shiftrows(self):
-             # to stop values from overriding, duplicate matrix
-            inv_pre_state = self.state
-            for r in range(1,4):
-                for c in range(self.Nb):
-                    self.state[r][(r+c)%4] = inv_pre_state[r][c]
-        
-        def inv_mixcolumns(self):
-            s_mixarr = (0x0e, 0x0b, 0x0d, 0x09)
-            for i in range(self.Nb):
-                tmp_state = (self.state[0][c], self.state[1][c],
-                             self.state[2][c], self.state[3][c])
-                self.state[0][c] = (self.gf256(tmp_state[0],s_mixarr[0]) ^
-                                    self.gf256(tmp_state[1],s_mixarr[1]) ^
-                                    self.gf256(tmp_state[2],s_mixarr[2]) ^
-                                    self.gf256(tmp_state[3],s_mixarr[3]))
-                self.state[1][c] = (self.gf256(tmp_state[0],s_mixarr[3]) ^
-                                    self.gf256(tmp_state[1],s_mixarr[0]) ^
-                                    self.gf256(tmp_state[2],s_mixarr[1]) ^
-                                    self.gf256(tmp_state[3],s_mixarr[2]))
-                self.state[2][c] = (self.gf256(tmp_state[0],s_mixarr[2]) ^
-                                    self.gf256(tmp_state[1],s_mixarr[3]) ^
-                                    self.gf256(tmp_state[2],s_mixarr[0]) ^
-                                    self.gf256(tmp_state[3],s_mixarr[1]))
-                self.state[3][c] = (self.gf256(tmp_state[0],s_mixarr[1]) ^
-                                    self.gf256(tmp_state[1],s_mixarr[2]) ^ 
-                                    self.gf256(tmp_state[2],s_mixarr[3]) ^
-                                    self.gf256(tmp_state[3],s_mixarr[0]))
-        
-        def key_expansion(self,key,w):
-            i = 0
-            while i < self.Nk:
-                w[i] = (key[4*i]<<24) | (key[4*i+1]<<16) | \
-                       (key[4*i+2]<<8) | key[4*i+3]
-                i+=1
-            i=self.Nk
+        for c in range(self.Nb):
+            # create temporary array to stop overriding
+            tmp_s = [self.state[0][c], self.state[1][c],
+                     self.state[2][c], self.state[3][c]]
             
-            # rcon values as 32 bit
-            tmp_rcon = []
-            for j in range(1,11):
-                tmp_rcon.append((self.rcon[j] & 0xff) << 24)
+            # mix columns operation
+            tmp = (tmp_s[0] ^ tmp_s[1] ^ tmp_s[2] ^ tmp_s[3])
+            tm =  (tmp_s[0] ^ tmp_s[1]) ; tm = xtime(tm)
+            self.state[0][c] ^= (tm ^ tmp)
+            tm =          (tmp_s[1] ^ tmp_s[2]) ; tm = xtime(tm)
+            self.state[1][c] ^= (tm ^ tmp)
+            tm =          (tmp_s[2] ^ tmp_s[3]) ; tm = xtime(tm)
+            self.state[2][c] ^= (tm ^ tmp)
+            tm =          (tmp_s[3] ^ tmp_s[0]) ; tm = xtime(tm)
+            self.state[3][c] ^= (tm ^ tmp)
+    
+    def subword(self,x):
+        sub_int = lambda y : self.sbox[(y&0xff)>>4][y&0x0f]
+        return (sub_int(x>>24)<<24) | \
+               (sub_int((x>>16)&0xff)<<16) | \
+               (sub_int((x>>8)&0xff)<<8) | \
+               (sub_int(x&0xff))
+    
+    def addroundkey(self,w,rnd):
+        for c in range(self.Nb):
+            w_index = w[rnd*4+c]
+            self.state[0][c] ^= (w_index >> 24) & 0xff
+            self.state[1][c] ^= (w_index >> 16) & 0xff
+            self.state[2][c] ^= (w_index >> 8) & 0xff
+            self.state[3][c] ^= w_index & 0xff
+    
+    # Decryption
+    def inv_subbytes(self):
+        for r in range(4):
+            for c in range(self.Nb):
+                bottom_mask = self.state[r][c]&0x0f
+                top_mask = self.state[r][c] >> 4
+                self.state = self.inv_sbox[top_mask][bottom_mask]
+    
+    def inv_shiftrows(self):
+         # to stop values from overriding, duplicate matrix
+        inv_pre_state = self.state
+        for r in range(1,4):
+            for c in range(self.Nb):
+                self.state[r][(r+c)%4] = inv_pre_state[r][c]
+    
+    def inv_mixcolumns(self):
+        s_mixarr = (0x0e, 0x0b, 0x0d, 0x09)
+        for i in range(self.Nb):
+            tmp_state = (self.state[0][c], self.state[1][c],
+                         self.state[2][c], self.state[3][c])
+            self.state[0][c] = (self.gf256(tmp_state[0],s_mixarr[0]) ^
+                                self.gf256(tmp_state[1],s_mixarr[1]) ^
+                                self.gf256(tmp_state[2],s_mixarr[2]) ^
+                                self.gf256(tmp_state[3],s_mixarr[3]))
+            self.state[1][c] = (self.gf256(tmp_state[0],s_mixarr[3]) ^
+                                self.gf256(tmp_state[1],s_mixarr[0]) ^
+                                self.gf256(tmp_state[2],s_mixarr[1]) ^
+                                self.gf256(tmp_state[3],s_mixarr[2]))
+            self.state[2][c] = (self.gf256(tmp_state[0],s_mixarr[2]) ^
+                                self.gf256(tmp_state[1],s_mixarr[3]) ^
+                                self.gf256(tmp_state[2],s_mixarr[0]) ^
+                                self.gf256(tmp_state[3],s_mixarr[1]))
+            self.state[3][c] = (self.gf256(tmp_state[0],s_mixarr[1]) ^
+                                self.gf256(tmp_state[1],s_mixarr[2]) ^ 
+                                self.gf256(tmp_state[2],s_mixarr[3]) ^
+                                self.gf256(tmp_state[3],s_mixarr[0]))
+    
+    def key_expansion(self,key,w):
+        i = 0
+        while i < self.Nk:
+            w[i] = (key[4*i]<<24) | (key[4*i+1]<<16) | \
+                   (key[4*i+2]<<8) | key[4*i+3]
+            i+=1
+        i=self.Nk
+        
+        # rcon values as 32 bit
+        tmp_rcon = []
+        for j in range(1,11):
+            tmp_rcon.append((self.rcon[j] & 0xff) << 24)
+        
+        while i<self.Nb*(self.Nr+1):
+            temp = w[i-1]
+            if i%self.Nk == 0:
+                temp = self.subword(self.rotword(temp) ^
+                                    tmp_rcon[i//self.Nk])
+            elif self.Nk>6 and i%self.Nk == 4:
+                temp = self.subword(temp)
+            w[i] = temp ^ w[i-self.Nk]
+            i+=1
             
-            while i<self.Nb*(self.Nr+1):
-                temp = w[i-1]
-                if i%self.Nk == 0:
-                    temp = self.subword(self.rotword(temp) ^
-                                        tmp_rcon[i//Nk])
-                elif self.Nk>6 and i%self.Nk == 4:
-                    temp = self.subword(temp)
-                w[i] = temp ^ w[i-Nk]
-                i+=1
-                
-        def cipher(self,inp,out,w):
-            if len(inp)%16 != 0:
-                inp = inp.zfill(16)
-            self.state = [[0]*4 for i in range(self.Nb)]
-            
-            # message to 2-d state matrix
-            for r in range(4):
-                for c in range(self.Nb):
-                    self.state[r][c] = inp[r+4*c]
-            
-            # call functions to manipulate state matrix
-            self.addroundkey(w, 0);
-            for rnd in range(1,self.Nk):
-                self.subBytes();
-                self.shiftrows();
-                self.mixcolumns();
-                self.addroundkey(w, rnd);
-            
-            self.subBytes();
+    def cipher(self,inp,out,w):
+        if len(inp)%16 != 0:
+            inp = inp.zfill(16)
+        self.state = np.eye(4,self.Nb,dtype=np.uint8)
+        
+        # message to 2-d state matrix
+        for r in range(4):
+            for c in range(self.Nb):
+                self.state[r][c] = ord(inp[r+4*c])
+        
+        # call functions to manipulate state matrix
+        self.addroundkey(w, 0);
+        for rnd in range(1,self.Nk):
+            self.subbytes();
             self.shiftrows();
-            self.addroundkey(w, self.Nr);
-            
-            # copy state matrix to output
-            for r in range(4):
-                for c in range(self.Nb):
-                    out[r+c*4] = self.state[r][c]
+            self.mixcolumns();
+            self.addroundkey(w, rnd);
         
-        def inv_cipher(self,inp,out,w):
-            self.state = [[0]*4 for i in range(self.Nb)]
-            
-            # message to 2-d state matrix
-            for r in range(4):
-                for c in range(self.Nb):
-                    self.state[r][c] = inp[r+4*c]
-            
-            addroundkey(w, Nr);
-            for rnd in range(Nr-1,0,-1):
-                self.inv_shiftrows();
-                self.inv_subBytes();
-                self.addroundkey(w, rnd);
-                self.inv_mixcolumns();
+        self.subbytes();
+        self.shiftrows();
+        self.addroundkey(w, self.Nr);
+        
+        # copy state matrix to output
+        for r in range(4):
+            for c in range(self.Nb):
+                out[r+c*4] = self.state[r][c]
+    
+    def inv_cipher(self,inp,out,w):
+        self.state = np.eye(4,self.Nb,dtype=np.uint8)
+        
+        # message to 2-d state matrix
+        for r in range(4):
+            for c in range(self.Nb):
+                self.state[r][c] = inp[r+4*c]
+        
+        self.addroundkey(w, self.Nr);
+        for rnd in range(self.Nr-1,0,-1):
             self.inv_shiftrows();
-            self.inv_subBytes();
-            self.addroundkey(w, 0);
-            
-            # 2-d matrix to 1d output
-            for r in range(4):
-                for c in range(self.Nb):
-                    out[r+4*c] = self.state[r][c]
+            self.inv_subbytes();
+            self.addroundkey(w, rnd);
+            self.inv_mixcolumns();
+        self.inv_shiftrows();
+        self.inv_subbytes();
+        self.addroundkey(w, 0);
+        
+        # 2-d matrix to 1d output
+        for r in range(4):
+            for c in range(self.Nb):
+                out[r+4*c] = self.state[r][c]
     
     def encrypt(self,inp,key):
-        ops = Ops()
         out = [0]*(4*self.Nb)
         w = [0]*(self.Nb*(self.Nr+1))
         str_out = ""
         
         # call key_expansion and cipher function
-        ops.key_expansion(key,w)
-        ops.cipher(inp,out,w)
+        self.key_expansion(key,w)
+        self.cipher(inp,out,w)
         
         # output to hex string
         for i in range(4*self.Nb):
@@ -267,25 +266,20 @@ class Aes:
         return str_out
     
     def decrypt(self,inp,key):
-        ops = Ops()
         out = [0]*(4*self.Nb)
         w = [0]*(self.Nb*(self.Nr+1))
-        inp = bytes.from_hex(inp) # hex string to byte array
+        inp = bytearray.fromhex(inp) # hex string to byte array
         
         # create key schedule and decrypt
-        ops.keyExpansion(key, w);
-        ops.invCipher(inp, out, w);
+        self.key_expansion(key, w);
+        self.inv_cipher(inp, out, w);
         string = ""
         for i in out:
             string+=str(i)
         
         return string
     
-    def multi_block_process_enc(self,inp,key, add_del):
-        # generate key if key is None
-        if key == None:
-            key = secrets.token_bytes(32)
-        
+    def multi_block_process_enc(self,inp,key, add_del):        
         # seperate input into 16-byte substrings
         if(len(inp) != 4*self.Nb):
             substr =  [inp[i:i+16] for i in range(0, len(inp), 16)]
@@ -298,8 +292,7 @@ class Aes:
                 else:
                     # if length is 16, add to another index of substr
                     substr.append('1')
-            
-            substr[len(substr)-1] = substr[len(substr)-1].zfill(16)
+            substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
         else:
             substr = inp
         
@@ -326,7 +319,7 @@ class Aes:
         
         return final_val
     
-class Aes256(Aes):
+class Aes256:
     def __init__(self):
         self.Nb = 4
         self.Nk = 8
@@ -334,9 +327,11 @@ class Aes256(Aes):
         self.key = None
         
     def encrypt(self,inp,key=None, delm=None):
-        self.key = key
-        super().__init__(self.Nb,self.Nk,self.Nr)
-        return super().multi_block_process_enc(inp,self.key,delm)
+        # generate key if key is None
+        if key == None:
+            self.key = secrets.token_bytes(32)
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_enc(inp,self.key,delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -344,19 +339,22 @@ class Aes256(Aes):
             assert self.key != None, "key not provided"
         else:
             self.key = key
-        super().__init__(self.Nb,self.Nk,self.Nr)
-        return super().multi_block_process_dec(inp,self.key,delm)
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_dec(inp,self.key,delm)
 
-class Aes192(Aes):
+class Aes192:
     def __init__(self):
         self.Nb = 4
         self.Nk = 6
         self.Nr = 12
-
-    def encrypt(self,inp,key=None,delm=None):
-        self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_enc(inp,self.key,delm)
+        self.key = None
+    
+    def encrypt(self,inp,key=None, delm=None):
+        # generate key if key is None
+        if key == None:
+            self.key = secrets.token_bytes(24)
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_enc(inp,self.key,delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -364,19 +362,22 @@ class Aes192(Aes):
             assert self.key != None, "key not provided"
         else:
             self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_dec(inp,self.key,delm)
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_dec(inp,self.key,delm)
 
-class Aes128(Aes):
+class Aes128:
     def __init__(self):
         self.Nb = 4
         self.Nk = 4
         self.Nr = 10
-
-    def encrypt(self,inp,key=None,delm=None):
-        self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_enc(inp,self.key, delm)
+        self.key = None
+    
+    def encrypt(self,inp,key=None, delm=None):
+        # generate key if key is None
+        if key == None:
+            self.key = secrets.token_bytes(16)
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_enc(inp,self.key,delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -384,9 +385,10 @@ class Aes128(Aes):
             assert self.key != None, "key not provided"
         else:
             self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_dec(inp,self.key,delm)
-
+        aes = Aes(self.Nb,self.Nk,self.Nr)
+        return aes.multi_block_process_dec(inp,self.key,delm)
 
 aes256 = Aes256()
-aes256.encrypt("test",None,True)
+cipher = aes256.encrypt("test",None,True)
+print(cipher)
+print(aes256.decrypt(cipher,aes256.key,True))
