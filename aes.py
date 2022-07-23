@@ -1,7 +1,7 @@
 """
-*  Author: Taha Canturk
-*  Github: Kibnakamoto
-* Repisotory: ECC
+*   Author: Taha Canturk
+*   Github: Kibnakamoto
+*  Repisotory: ECC
 * Start Date: July 21, 2022
 * Finalized:  July 22, 2022 
 """
@@ -126,11 +126,11 @@ class Aes:
                 self.state[3][c] ^= (tm ^ tmp)
         
         def subword(self,x):
-            sub_int = lambda y : self.sbox[(y&0xff)>>4][y&0x0fU]
+            sub_int = lambda y : self.sbox[(y&0xff)>>4][y&0x0f]
             return (self.sub_int(x>>24)<<24) | \
                    (self.sub_int((x>>16)&0xff)<<16) | \
                    (self.sub_int((x>>8)&0xff)<<8) | \
-                   (self.sub_int(x&0xff)
+                   (self.sub_int(x&0xff))
         
         def addroundkey(self,w,rnd):
             for i in range(self.Nb):
@@ -198,12 +198,12 @@ class Aes:
                 elif self.Nk>6 and i%self.Nk == 4:
                     temp = self.subword(temp)
                 w[i] = temp ^ w[i-Nk]
-                i++
+                i+=1
                 
         def cipher(self,inp,out,w):
-           if len(inp)%16 != 0:
+            if len(inp)%16 != 0:
                 inp = inp.zfill(16)
-            self.state = [for i in range(4)]*self.Nb
+            self.state = [[0]*4 for i in range(self.Nb)]
             
             # message to 2-d state matrix
             for r in range(4):
@@ -228,14 +228,14 @@ class Aes:
                     out[r+c*4] = self.state[r][c]
         
         def inv_cipher(self,inp,out,w):
-            self.state = [for i in range(4)]*self.Nb
+            self.state = [[0]*4 for i in range(self.Nb)]
             
             # message to 2-d state matrix
             for r in range(4):
                 for c in range(self.Nb):
                     self.state[r][c] = inp[r+4*c]
             
-             addroundkey(w, Nr);
+            addroundkey(w, Nr);
             for rnd in range(Nr-1,0,-1):
                 self.inv_shiftrows();
                 self.inv_subBytes();
@@ -279,9 +279,9 @@ class Aes:
         for i in out:
             string+=str(i)
         
-        return string)
+        return string
     
-    def multi_block_process_enc(self,inp,key):
+    def multi_block_process_enc(self,inp,key, add_del):
         # generate key if key is None
         if key == None:
             key = secrets.token_bytes(32)
@@ -292,7 +292,12 @@ class Aes:
             
             # add string delimeter so that in decryption, padding is deleted
             length_substr = len(substr[len(substr)-1])
-            substr[len(substr)-1]+="1"
+            if add_del != None:
+                if len(substr[len(substr)-1]) != 16:
+                    substr[len(substr)-1]+='1'
+                else:
+                    # if length is 16, add to another index of substr
+                    substr.append('1')
             
             substr[len(substr)-1] = substr[len(substr)-1].zfill(16)
         else:
@@ -300,81 +305,88 @@ class Aes:
         
         final_ct = ""
         for i in substr:
-            final_ct+=encrypt(i,key)
+            final_ct+=self.encrypt(i,key)
         return final_ct
     
-    def multi_block_process_dec(self,inp,key):
+    def multi_block_process_dec(self,inp,key, rm_del):
         # make the string delimeter optional with input
         # remove string delimeter
         if len(inp)%32 != 0:
             raise Exception("input length has to be a multiple of 32 bytes")
         
         # seperate message into blocks of 32 hex digits
-         substr =  [inp[i:i+32] for i in range(0, len(inp), 32)]
+        substr =  [inp[i:i+32] for i in range(0, len(inp), 32)]
         final_val = ""
         for i in range(len(substr)):
-            final_val+=decrypt(substr[i],key)
+            final_val+=self.decrypt(substr[i],key)
+        
+        # remove final delimeter '1'
+        if rm_del != None:
+            final_val = final_val.rsplit('1', 1)[0]
         
         return final_val
     
 class Aes256(Aes):
-    def __init__():
+    def __init__(self):
         self.Nb = 4
         self.Nk = 8
         self.Nr = 14
         self.key = None
         
-    def encrypt(self,inp,key=None):
+    def encrypt(self,inp,key=None, delm=None):
         self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_enc(inp,self.key)
+        super().__init__(self.Nb,self.Nk,self.Nr)
+        return super().multi_block_process_enc(inp,self.key,delm)
     
-    def decrypt(self,inp,key=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
         else:
             self.key = key
-        return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_dec(inp,self.key)
+        super().__init__(self.Nb,self.Nk,self.Nr)
+        return super().multi_block_process_dec(inp,self.key,delm)
 
 class Aes192(Aes):
-    def __init__():
+    def __init__(self):
         self.Nb = 4
         self.Nk = 6
         self.Nr = 12
 
-    def encrypt(self,inp,key=None):
+    def encrypt(self,inp,key=None,delm=None):
         self.key = key
         return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_enc(inp,self.key)
+                     self.Nr).multi_block_process_enc(inp,self.key,delm)
     
-    def decrypt(self,inp,key=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
         else:
             self.key = key
         return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_dec(inp,self.key)
+                     self.Nr).multi_block_process_dec(inp,self.key,delm)
 
 class Aes128(Aes):
-    def __init__():
+    def __init__(self):
         self.Nb = 4
         self.Nk = 4
         self.Nr = 10
 
-    def encrypt(self,inp,key=None):
+    def encrypt(self,inp,key=None,delm=None):
         self.key = key
         return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_enc(inp,self.key)
+                     self.Nr).multi_block_process_enc(inp,self.key, delm)
     
-    def decrypt(self,inp,key=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
         else:
             self.key = key
         return super(self.Nb,self.Nk,
-                     self.Nr).multi_block_process_dec(inp,self.key)
+                     self.Nr).multi_block_process_dec(inp,self.key,delm)
 
+
+aes256 = Aes256()
+aes256.encrypt("test",None,True)
