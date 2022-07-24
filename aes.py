@@ -86,7 +86,7 @@ class Aes:
     def rotword(self,x):
         return (x<<8)|(x>>24)
 
-    """ Encryption Operations """
+    # Encryption Operations
     def subbytes(self):
         # seperates hex byte into 2 nibbles and use them as index to
         # sub in values as index of s-box
@@ -144,9 +144,9 @@ class Aes:
     def inv_subbytes(self):
         for r in range(4):
             for c in range(self.Nb):
-                bottom_mask = self.state[r][c]&0x0f
+                bottom_mask = self.state[r][c] & 0x0f
                 top_mask = self.state[r][c] >> 4
-                self.state = self.inv_sbox[top_mask][bottom_mask]
+                self.state[r][c] = self.inv_sbox[top_mask][bottom_mask]
     
     def inv_shiftrows(self):
          # to stop values from overriding, duplicate matrix
@@ -157,7 +157,7 @@ class Aes:
     
     def inv_mixcolumns(self):
         s_mixarr = (0x0e, 0x0b, 0x0d, 0x09)
-        for i in range(self.Nb):
+        for c in range(self.Nb):
             tmp_state = (self.state[0][c], self.state[1][c],
                          self.state[2][c], self.state[3][c])
             self.state[0][c] = (self.gf256(tmp_state[0],s_mixarr[0]) ^
@@ -180,8 +180,8 @@ class Aes:
     def key_expansion(self,key,w):
         i = 0
         while i < self.Nk:
-            w[i] = (key[4*i]<<24) | (key[4*i+1]<<16) | \
-                   (key[4*i+2]<<8) | key[4*i+3]
+            w[i] = ((key[4*i]<<24) | (key[4*i+1]<<16) | \
+                   (key[4*i+2]<<8) | key[4*i+3]) & 0xffffffff
             i+=1
         i=self.Nk
         
