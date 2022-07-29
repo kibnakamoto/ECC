@@ -1,7 +1,13 @@
 import secrets
 import math
 
-# implementation of secp521r1 and weistress curve
+# implementation of public key generation of weierstrass curves
+
+def gen_key(n):
+    key = 0
+    while(key == 0):
+        key = secrets.randbelow(n)
+    return key
 
 def point_add(xp, yp, xq, yq, p, a):
         # equation for private key and pointG
@@ -48,18 +54,6 @@ class Weierstrass:
         self.p = p
         self.a = a
         self.b = b
-        
-    def rec_mul(self, g: tuple, d: int):
-        w = Weierstrass(self.p,self.a,self.b)
-        if d == 0:
-            return (0,0)
-        elif d == 1:
-            return g
-        elif d%2 == 1:
-            add = w.rec_mul(g, d - 1)
-            return w.point_add(g[0], g[1], add[0], add[1])
-        else:
-            return w.rec_mul(w.point_double(g[0],g[1]), d//2)
     
     def multiply(self,pointG: tuple, prikey: int):
         weierstrass = Weierstrass(self.p,self.a,self.b)
@@ -72,25 +66,8 @@ class Weierstrass:
         if (pointG[1]**2)%self.p == (pointG[0]**3 + 
                                      self.a*pointG[0] + 
                                      self.b) % self.p:
-            # bits = bin(prikey)[2:]
-            # i = len(bits)-2
-            # result = [pointG[0],pointG[1]]
-            # while i >= 0:
-            #     result = weierstrass.point_double(result[0], 
-            #                                       result[1])
-            #     if bits[i] == '1':
-            #         result = weierstrass.point_add(result[0],
-            #                                        result[1],
-            #                                        pointG[0],
-            #                                        pointG[1])
-            #     i-=1
-
             return montgomery_ladder(self.pointG, self.prikey, self.p, 
                                      self.a)
-            # result = weierstrass.rec_mul(self.pointG, self.prikey)
-            # return (result[0]%self.p,result[1]%self.p)
-            
-            # return ((prikey*pointG[0])%p, (prikey*pointG[1])%p)
         else:
             raise Exception("parameters do not satisfy equation")
 
@@ -110,7 +87,7 @@ class Secp521r1:
     def get_privkey(self, pri_k=0):
         # numbers from 1 to n-1. But 1 is not given as the starting range
         if(pri_k == 0):
-            self.pri_k = secrets.randbelow(self.n)
+            self.pri_k = gen_key(self.n)
         else:
             self.pri_k = pri_k
     
@@ -120,13 +97,6 @@ class Secp521r1:
 
 class Secp256r1:
     def __init__(self):
-        # self.p = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
-        # self.n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
-        # self.a = 0x0000000000000000000000000000000000000000000000000000000000000000
-        # self.b = 0x0000000000000000000000000000000000000000000000000000000000000007
-        # self.G = (0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
-        #           0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
-                # random
         self.p = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff
         self.n = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551
         self.a = 0xffffffff00000001000000000000000000000000fffffffffffffffffffffffc
@@ -139,10 +109,30 @@ class Secp256r1:
     def get_privkey(self, pri_k=0):
         # numbers from 1 to n-1. But 1 is not given as the starting range
         if(pri_k == 0):
-            self.pri_k = secrets.randbelow(self.n)
+            self.pri_k = gen_key(self.n)
         else:
             self.pri_k = pri_k
     
     def get_pubkey(self):
         weierstrass = Weierstrass(self.p, self.a, self.b)
         self.pub_k = weierstrass.multiply(self.G, self.pri_k)
+
+class Secp256k1:
+    def __init__(self):
+        self.p = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+        self.n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+        self.a = 0x0000000000000000000000000000000000000000000000000000000000000000
+        self.b = 0x0000000000000000000000000000000000000000000000000000000000000007
+        self.G = (0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
+                  0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
+    def get_privkey(self, pri_k=0):
+        # numbers from 1 to n-1. But 1 is not given as the starting range
+        if(pri_k == 0):
+            self.pri_k = gen_key(self.n)
+        else:
+            self.pri_k = pri_k
+    
+    def get_pubkey(self):
+        weierstrass = Weierstrass(self.p, self.a, self.b)
+        self.pub_k = weierstrass.multiply(self.G, self.pri_k)
+
