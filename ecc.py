@@ -41,27 +41,24 @@ class Ecdsa:
                 self.key = 0
                 
                 # make sure the generated key is not zero
-                # while self.key == 0:
-                new_key = 500#curves.gen_key(self.n)
-                    # self.key = gen_shared_key(new_key,self.G,
-                    #                           self.n,self.a)
-                ks = new_key+self.n
-                kt = ks+self.n
-                if len(bin(ks)[2:]) == len(bin(self.n)[2:]):
-                    p1 = curves.montgomery_ladder(self.G,kt,self.p,self.a)
-                else:
-                    p1 = curves.montgomery_ladder(self.G,ks,self.p,self.a)
-                self.key = p1[0] % self.n
+                while self.key == 0:
+                    new_key = curves.gen_key(self.n)
+                    kn = new_key+self.n
+                    knn = kn+self.n
+                    if len(bin(kn)[2:]) == len(bin(self.n)[2:]):
+                        mul = curves.montgomery_ladder(self.G,knn,self.p,self.a)
+                    else:
+                        mul = curves.montgomery_ladder(self.G,kn,self.p,self.a)
+                    self.key = mul[0] % self.n
             else:
                 # use key provided as function parameter
                 self.key = key
             
             # calculate modular inverse of key
-            inv_key = pow(self.key,-1,self.n)
+            inv_key = pow(new_key,-1,self.n)
             
             # calculate y coordinate of signature
-            y = ((m_hash + pri_key * self.key) * (pow(new_key, -1,self.n))) % self.n
-            #(inv_key*(m_hash + pri_key*self.key)) % self.n
+            y = inv_key*(m_hash + pri_key * self.key) % self.n
                         
             # if input key returns y = 0, exit with custom error message to
             # avoid endless loop
