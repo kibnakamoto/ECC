@@ -1,6 +1,5 @@
 import curves
 from sha512 import *
-from hashlib import sha1
 
 # same p,a,b parameters have to be used by both parties for 
 # creating a shared key, the shared key will be used for symmetric encryption and elliptic cryptography digital signatures
@@ -31,7 +30,7 @@ class Ecdsa:
         if key == 0:
             raise Exception("key x is zero")
         
-        m_hash = int(str(sha1(message.encode()).hexdigest()),16)
+        m_hash = int(str(Sha512(message)),16)
         self.m_hash = m_hash
         y = 0
 
