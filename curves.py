@@ -71,10 +71,22 @@ class Weierstrass:
         else:
             raise Exception("parameters do not satisfy equation")
 
+# Highest level security, the only non-prime field implemented here
+class Sect571k1:
+    def __init__(self):
+        self.m = 571
+        self.a = 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+        self.b = 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001
+        self.G = 0x04026EB7A859923FBC82189631F8103FE4AC9CA2970012D5D46024804801841CA44370958493B205E647DA304DB4CEB08CBBD1BA39494776FB988B47174DCA88C7E2945283A01C89720349DC807F4FBF374F4AEADE3BCA95314DD58CEC9F307A54FFC61EFC006D8A2C9D4979C0AC44AEA74FBEBBB9F772AEDCB620B01A7BA7AF1B320430C8591984F601CD4C143EF1C7A3
+
+        self.n = 0x020000000000000000000000000000000000000000000000000000000000000000000000131850E1F19A63E4B391A8DB917F4138B630D84BE5D639381E91DEB45CFE778F637C1001
+        self.h = 0x04
+        
+
 class Secp521r1:
     def __init__(self):
         self.p = 0x1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-        self.h = 1
+        self.h = 0x01
         self.n = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409
         self.tr = 0x5ae79787c40d069948033feb708f65a2fc44a36477663b851449048e16ec79bf7
         self.a = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc
@@ -83,17 +95,6 @@ class Secp521r1:
                   0x11839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650)
         self.c = 0x0b48bfa5f420a34949539d2bdfc264eeeeb077688e44fbf0ad8f6d0edb37bd6b533281000518e19f1b9ffbe0fe9ed8a3c2200b8f875e523868c70c1e5bf55bad637
         self.seed = 0xd09e8800291cb85396cc6717393284aaa0da64ba
-    
-    def get_privkey(self, pri_k=0):
-        # numbers from 1 to n-1. But 1 is not given as the starting range
-        if(pri_k == 0):
-            self.pri_k = gen_key(self.n)
-        else:
-            self.pri_k = pri_k
-    
-    def get_pubkey(self):
-        weierstrass = Weierstrass(self.p,self.a,self.b)
-        self.pub_k = weierstrass.multiply(self.G, self.pri_k)
 
 class Secp256r1:
     def __init__(self):
@@ -104,18 +105,7 @@ class Secp256r1:
         self.G = (0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
                   0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5)
 
-        self.h = 1
-    
-    def get_privkey(self, pri_k=0):
-        # numbers from 1 to n-1. But 1 is not given as the starting range
-        if(pri_k == 0):
-            self.pri_k = gen_key(self.n)
-        else:
-            self.pri_k = pri_k
-    
-    def get_pubkey(self):
-        weierstrass = Weierstrass(self.p, self.a, self.b)
-        self.pub_k = weierstrass.multiply(self.G, self.pri_k)
+        self.h = 0x01
 
 class Secp256k1:
     def __init__(self):
@@ -125,14 +115,18 @@ class Secp256k1:
         self.b = 0x0000000000000000000000000000000000000000000000000000000000000007
         self.G = (0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
                   0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
+
+class Curve:
+    def __init__(self,curve=Secp521r1):
+        self.curve = curve
+
     def get_privkey(self, pri_k=0):
         # numbers from 1 to n-1. But 1 is not given as the starting range
         if(pri_k == 0):
-            self.pri_k = gen_key(self.n)
+            self.pri_k = gen_key(self.curve.n)
         else:
             self.pri_k = pri_k
     
     def get_pubkey(self):
-        weierstrass = Weierstrass(self.p, self.a, self.b)
-        self.pub_k = weierstrass.multiply(self.G, self.pri_k)
-
+        weierstrass = Weierstrass(self.curve.p,self.curve.a,self.curve.b)
+        self.pub_k = weierstrass.multiply(self.curve.G, self.pri_k)
