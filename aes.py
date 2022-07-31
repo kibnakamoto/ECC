@@ -3,11 +3,14 @@
 *   Github: Kibnakamoto
 *  Repisotory: ECC
 * Start Date: July 21, 2022
-* Finalized:  July 22, 2022 
+* Finalized:  July 29, 2022 
 """
 
 import secrets # for optional key generation for encryption
 import numpy as np
+import copy
+
+# TODO: add iv to xor first plaintext block with. For CBC encryption required in ECIES
 
 class Aes:
     def __init__(self, Nb: int, Nk: int, Nr: int):
@@ -84,7 +87,7 @@ class Aes:
     
     # bitwise circular-left-shift operator for rotating by 8 bits.
     def rotword(self,x):
-        return (x<<8)|(x>>24)
+        return ((x<<8)|(x>>24)) & 0xffffffff
 
     # Encryption Operations
     def subbytes(self):
@@ -98,7 +101,7 @@ class Aes:
 
     def shiftrows(self):
         # to stop values from overriding, use 2 arrays with the same values
-        pre_state = self.state
+        pre_state = copy.deepcopy(self.state)
         
         # ShiftRows operation. First row is not changed
         for r in range(1,4):
@@ -150,7 +153,7 @@ class Aes:
     
     def inv_shiftrows(self):
          # to stop values from overriding, duplicate matrix
-        inv_pre_state = self.state
+        inv_pre_state = copy.deepcopy(self.state)
         for r in range(1,4):
             for c in range(self.Nb):
                 self.state[r][(r+c)%4] = inv_pre_state[r][c]
@@ -186,15 +189,15 @@ class Aes:
         i=self.Nk
         
         # rcon values as 32 bit
-        tmp_rcon = []
+        tmp_rcon = [0]*11
         for j in range(1,11):
-            tmp_rcon.append((self.rcon[j] & 0xff) << 24)
+            tmp_rcon[j] = (self.rcon[j] & 0xff) << 24
         
         while i<self.Nb*(self.Nr+1):
             temp = w[i-1]
             if i%self.Nk == 0:
-                temp = self.subword(self.rotword(temp) ^
-                                    tmp_rcon[i//self.Nk])
+                temp = self.subword(self.rotword(temp)) ^ \
+                                    tmp_rcon[i//self.Nk]
             elif self.Nk>6 and i%self.Nk == 4:
                 temp = self.subword(temp)
             w[i] = temp ^ w[i-self.Nk]
@@ -212,12 +215,11 @@ class Aes:
         
         # call functions to manipulate state matrix
         self.addroundkey(w, 0);
-        for rnd in range(1,self.Nk):
+        for rnd in range(1,self.Nr):
             self.subbytes();
             self.shiftrows();
             self.mixcolumns();
             self.addroundkey(w, rnd);
-        
         self.subbytes();
         self.shiftrows();
         self.addroundkey(w, self.Nr);
@@ -251,8 +253,8 @@ class Aes:
                 out[r+4*c] = self.state[r][c]
     
     def encrypt(self,inp,key):
-        out = [0]*(4*self.Nb)
-        w = [0]*(self.Nb*(self.Nr+1))
+        out = np.zeros(4*self.Nb,dtype=np.uint8)
+        w = np.zeros(self.Nb*(self.Nr+1),dtype=np.uint32)
         str_out = ""
         
         # call key_expansion and cipher function
@@ -266,8 +268,8 @@ class Aes:
         return str_out
     
     def decrypt(self,inp,key):
-        out = [0]*(4*self.Nb)
-        w = [0]*(self.Nb*(self.Nr+1))
+        out = np.zeros(4*self.Nb,dtype=np.uint8)
+        w = np.zeros(self.Nb*(self.Nr+1),dtype=np.uint32)
         inp = bytearray.fromhex(inp) # hex string to byte array
         
         # create key schedule and decrypt
@@ -275,11 +277,11 @@ class Aes:
         self.inv_cipher(inp, out, w);
         string = ""
         for i in out:
-            string+=str(i)
+            string+=chr(i)
         
         return string
     
-    def multi_block_process_enc(self,inp,key, add_del):        
+    def multi_block_process_enc(self,inp,key, add_del):
         # seperate input into 16-byte substrings
         if(len(inp) != 4*self.Nb):
             substr =  [inp[i:i+16] for i in range(0, len(inp), 16)]
@@ -294,7 +296,7 @@ class Aes:
                     substr.append('1')
             substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
         else:
-            substr = inp
+            substr = [inp]
         
         final_ct = ""
         for i in substr:
@@ -330,6 +332,8 @@ class Aes256:
         # generate key if key is None
         if key == None:
             self.key = secrets.token_bytes(32)
+        else:
+            self.key = key
         aes = Aes(self.Nb,self.Nk,self.Nr)
         return aes.multi_block_process_enc(inp,self.key,delm)
     
@@ -353,6 +357,8 @@ class Aes192:
         # generate key if key is None
         if key == None:
             self.key = secrets.token_bytes(24)
+        else:
+            self.key = key
         aes = Aes(self.Nb,self.Nk,self.Nr)
         return aes.multi_block_process_enc(inp,self.key,delm)
     
@@ -376,6 +382,8 @@ class Aes128:
         # generate key if key is None
         if key == None:
             self.key = secrets.token_bytes(16)
+        else:
+            self.key = key
         aes = Aes(self.Nb,self.Nk,self.Nr)
         return aes.multi_block_process_enc(inp,self.key,delm)
     
@@ -389,6 +397,10 @@ class Aes128:
         return aes.multi_block_process_dec(inp,self.key,delm)
 
 aes256 = Aes256()
-cipher = aes256.encrypt("test",None,True)
-print(cipher)
-print(aes256.decrypt(cipher,aes256.key,True))
+key = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,
+      0x0e,0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,
+      0x1c,0x1d,0x1e,0x1f]
+
+cipher = aes256.encrypt("0123456789abcdef",key,None)
+print("cipher:",cipher)
+print("plain:",aes256.decrypt(cipher,aes256.key))
