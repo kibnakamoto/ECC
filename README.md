@@ -2,8 +2,20 @@
 
 Jul 16, 2022
 
+# Algorithms:
+
 Elliptic Cryptography Integrated Encrypton Scheme
 
-Weiestress curve is used
+Elliptic Cryptography Digital Signature Algorithm
 
-algorithms: secp521r1, secp256r1
+Hash-based Message Authentication Code
+
+Cipher-based Message Authentication Code
+
+Advanced Encryption Standard
+
+512-bit Secure Hashing Algorithm
+
+Only Weiestress curve is used
+
+Curves: sect571k1, secp521r1, secp256k1, secp256r1
