@@ -20,7 +20,7 @@ def field_e_to_int(a, size, m=None):
     return x
 
 # Hash-based Message Authentication Code
-def hmac(key: bytearray, msg: str,block_s: int = 64, machashf=Sha512):
+def hmac(key: bytearray, msg: str,block_s: int = 128, machashf=Sha512):
     if len(key) == block_s:
         new_key = bytearray(key)
     elif len(key) > block_s:
@@ -129,7 +129,14 @@ class Ecdsa:
         return False
 
 class Ecies:
-    pass
+    def __init__(curve=Secp521r1):
+        pass
+    
+    def check_hmac():
+        pass
+    
+    def check_cmac():
+        pass
 
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
 # Signature Algorithm - 256-bit Advanced Encryption Standard - 
