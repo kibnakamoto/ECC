@@ -80,7 +80,7 @@ class Aes:
     def gf256(self,x,y):
         p=0
         for i in range(8):
-            p ^= ((y&1)&1)
+            p ^= -(y&1)&x
             x = (x<<1) ^ (0x11b & -((x>>7)&1))
             y>>=1
         return p
@@ -157,7 +157,7 @@ class Aes:
         for r in range(1,4):
             for c in range(self.Nb):
                 self.state[r][(r+c)%4] = inv_pre_state[r][c]
-    
+        
     def inv_mixcolumns(self):
         s_mixarr = (0x0e, 0x0b, 0x0d, 0x09)
         for c in range(self.Nb):
@@ -242,7 +242,7 @@ class Aes:
             self.inv_shiftrows();
             self.inv_subbytes();
             self.addroundkey(w, rnd);
-            self.inv_mixcolumns();
+            self.inv_mixcolumns()
         self.inv_shiftrows();
         self.inv_subbytes();
         self.addroundkey(w, 0);
@@ -285,19 +285,22 @@ class Aes:
         # seperate input into 16-byte substrings
         if(len(inp) != 4*self.Nb):
             substr =  [inp[i:i+16] for i in range(0, len(inp), 16)]
-            
-            # add string delimeter so that in decryption, padding is deleted
-            length_substr = len(substr[len(substr)-1])
-            if add_del != None:
-                if len(substr[len(substr)-1]) != 16:
-                    substr[len(substr)-1]+='1'
-                else:
-                    # if length is 16, add to another index of substr
-                    substr.append('1')
-            substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
         else:
             substr = [inp]
         
+        # add string delimeter so that in decryption, padding is deleted
+        length_substr = len(substr[len(substr)-1])
+        
+        if add_del != None:
+            if len(substr[len(substr)-1]) != 16:
+                substr[len(substr)-1]+='1'
+            # else:
+                # not necesarry but decryption without it is wrong
+                # with delimeter if '1' is a character of the input
+                # if length is 16, so add to another index of substr
+                # substr.append('1')
+        substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
+
         final_ct = ""
         for i in substr:
             final_ct+=self.encrypt(i,key)
@@ -327,15 +330,22 @@ class Aes256:
         self.Nk = 8
         self.Nr = 14
         self.key = None
-        
+    
     def encrypt(self,inp,key=None, delm=None):
         # generate key if key is None
         if key == None:
             self.key = secrets.token_bytes(32)
         else:
             self.key = key
+        
+        # remove delimeter in decryption only if length isn't
+        # already a multiple of 16
+        if len(inp)%16 != 0:
+            self.delm = delm
+        else:
+            self.delm = None
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,delm)
+        return aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -343,8 +353,13 @@ class Aes256:
             assert self.key != None, "key not provided"
         else:
             self.key = key
+        
+        # remove delimeter if added during encryption
+        if delm == None:
+            self.delm = None
+        
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,delm)
+        return aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes192:
     def __init__(self):
@@ -359,8 +374,15 @@ class Aes192:
             self.key = secrets.token_bytes(24)
         else:
             self.key = key
+        
+        # remove delimeter in decryption only if length isn't
+        # already a multiple of 16
+        if len(inp)%16 != 0:
+            self.delm = delm
+        else:
+            self.delm = None
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,delm)
+        return aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -368,8 +390,13 @@ class Aes192:
             assert self.key != None, "key not provided"
         else:
             self.key = key
+        
+        # remove delimeter if added during encryption
+        if delm == None:
+            self.delm = None
+        
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,delm)
+        return aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes128:
     def __init__(self):
@@ -384,8 +411,15 @@ class Aes128:
             self.key = secrets.token_bytes(16)
         else:
             self.key = key
+        
+        # remove delimeter in decryption only if length isn't
+        # already a multiple of 16
+        if len(inp)%16 != 0:
+            self.delm = delm
+        else:
+            self.delm = None
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,delm)
+        return aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
@@ -393,14 +427,19 @@ class Aes128:
             assert self.key != None, "key not provided"
         else:
             self.key = key
+        
+        # remove delimeter if added during encryption
+        if delm == None:
+            self.delm = None
+        
         aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,delm)
+        return aes.multi_block_process_dec(inp,self.key,self.delm)
 
 aes256 = Aes256()
 key = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,
       0x0e,0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,
       0x1c,0x1d,0x1e,0x1f]
 
-cipher = aes256.encrypt("0123456789abcdef",key,None)
-print("cipher:",cipher)
-print("plain:",aes256.decrypt(cipher,aes256.key))
+cipher = aes256.encrypt("0123456789abcdef",key,True)
+print(cipher)
+print("plain:",aes256.decrypt(cipher,aes256.key,True))
