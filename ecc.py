@@ -128,15 +128,74 @@ class Ecdsa:
             return True
         return False
 
+# from https://www.secg.org/sec1-v2.pdf
 class Ecies:
-    def __init__(curve=Secp521r1):
-        pass
+    def __init__(keylen=521, curve=curves.Secp521r1, encypt_alg=Aes256):
+        self.curve = curve
+        self.keylen = keylen # shared-key length of curve
+        self.tag = None
+        self.encypt_alg = encrypt_alg
+        self.enc = None
+        
+    # generate hmac of sender
+    def gen_hmac(msg,key,alg=Sha512,block_s=128):
+        key.int_to_bytes(ceil(float(self.keylen)//2),'big')
+        self.tag = hmac(key,msg,block_s,alg)
+        return self.tag
     
-    def check_hmac():
-        pass
+    # verify HMAC, the receiver has to verify it to make sure message is
+    # not tampered
+    def check_hmac(msg,key,tag=None,alg=Sha512,block_s=128):
+        if tag == None:
+            if self.tag == None:
+                raise Exception("no tag provided")
+        else:
+            self.tag = tag
+        key.int_to_bytes(ceil(float(self.keylen)//2),'big')
+        self.unv_tag = hmac(key,msg,block_s,alg)
+        
+        # check tag
+        self.tag_verified = self.tag == self.unv_tag
+        if !self.tag_verified:
+            raise Exception("wrong tag, message is tampered")
+        return True
     
+    # TODO: implement CMAC
+    def gen_cmac():
+        pass
+
     def check_cmac():
         pass
+    
+    # msg is the message you want to encrypt
+    # key is the established shared secret using the KDF
+    # tag, verify that tag equals True 
+    # if you want iv generated for you, then iv should equal True, no iv is None
+    # add delimeter if msg length isn't 16 octets, None for none
+    def encrypt(msg,key, iv=None, delimeter=None):
+        # supported Symmetric Encryption Schemes
+        # AES–128 in CBC mode
+        # AES–192 in CBC mode
+        # AES–256 in CBC mode
+        
+        self.key = key
+        self.enc = self.encrypt_alg(iv)
+        self.iv = self.enc.iv
+        self.cipher = self.enc.encrypt(msg,key,delimeter)
+        return self.cipher
+    
+    def decrypt(cipher,key,iv=None,delimeter=None):        
+        # decrypt ciphertext
+        try:
+            self.iv = self.enc.iv
+        except NameError:
+            self.enc = self.encrypt_alg(iv)
+            self.iv = self.enc.iv
+        self.plain = self.enc.decrypt(cipher,key,delimeter)
+        
+        # after decrypting, verify MAC so that you know message isn't tampered
+        return self.plain
+
 
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
 # Signature Algorithm - 256-bit Advanced Encryption Standard - 
