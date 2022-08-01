@@ -9,7 +9,7 @@
 # Important: for non-CBC mode, iv should be equal to None and
 # if you want the iv to be generated for you, iv should be equal to True
 
-import secrets # for optional key generation for encryption
+import secrets # for optional key and iv generation for encryption
 import numpy as np
 import copy
 
@@ -371,7 +371,7 @@ class Aes256:
             self.delm = None
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,iv=None,delm=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -406,7 +406,7 @@ class Aes192:
             self.delm = None
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,iv=None,delm=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -441,7 +441,7 @@ class Aes128:
             self.delm = None
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,iv=None,delm=None):
+    def decrypt(self,inp,key=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -458,6 +458,6 @@ key = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,
       0x0e,0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,
       0x1c,0x1d,0x1e,0x1f]
 
-cipher = aes256.encrypt("0123456789abcd",key,True)
+cipher = aes256.encrypt("0123456789abcdef",key,True)
 print(cipher)
 print("plain:",aes256.decrypt(cipher,aes256.key,True))
