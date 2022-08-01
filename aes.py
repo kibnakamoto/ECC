@@ -3,20 +3,28 @@
 *   Github: Kibnakamoto
 *  Repisotory: ECC
 * Start Date: July 21, 2022
-* Finalized:  July 29, 2022 
+* Finalized:  July 31, 2022 
 """
+
+# Important: for non-CBC mode, iv should be equal to None and
+# if you want the iv to be generated for you, iv should be equal to True
 
 import secrets # for optional key generation for encryption
 import numpy as np
 import copy
 
-# TODO: add iv to xor first plaintext block with. For CBC encryption required in ECIES
-
 class Aes:
-    def __init__(self, Nb: int, Nk: int, Nr: int):
+    def __init__(self, Nb: int, Nk: int, Nr: int, iv: bytes):
         self.Nb = Nb
         self.Nk = Nk
         self.Nr = Nr
+        if iv != True:
+            if iv != None and len(iv) != 16:
+                raise Exception(f"length of iv is {len(iv)} and not 16")
+            self.iv = iv # initialization vector
+        else:
+            self.iv = secrets.token_bytes(16)
+        
         
         # Rijndael's S-box as a 2-dimentional matrix
         self.sbox = (
@@ -281,26 +289,31 @@ class Aes:
         
         return string
     
-    def multi_block_process_enc(self,inp,key, add_del):
+    def multi_block_process_enc(self,inp,key, add_del=None):
         # seperate input into 16-byte substrings
         if(len(inp) != 4*self.Nb):
             substr =  [inp[i:i+16] for i in range(0, len(inp), 16)]
         else:
             substr = [inp]
-        
+                
         # add string delimeter so that in decryption, padding is deleted
         length_substr = len(substr[len(substr)-1])
         
         if add_del != None:
             if len(substr[len(substr)-1]) != 16:
                 substr[len(substr)-1]+='1'
-            # else:
-                # not necesarry but decryption without it is wrong
-                # with delimeter if '1' is a character of the input
-                # if length is 16, so add to another index of substr
-                # substr.append('1')
         substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
-
+        
+        # xor first block with iv if in CBC mode
+        if self.iv != None:
+            encoded_substr = substr[0].encode('charmap')
+            tmp_str = ""
+            for i in range(16):
+                tmp_str += chr(encoded_substr[i] ^
+                               self.iv[i])
+            tmp_str = list(tmp_str)
+            substr[0] = ''.join(tmp_str)
+        
         final_ct = ""
         for i in substr:
             final_ct+=self.encrypt(i,key)
@@ -318,18 +331,30 @@ class Aes:
         for i in range(len(substr)):
             final_val+=self.decrypt(substr[i],key)
         
+        # xor first block with iv if in CBC mode
+        if self.iv != None:
+            tmp_str = ""
+            encoded_substr = final_val[:16].encode('charmap')
+            for i in range(16):
+                tmp_str += chr(encoded_substr[i] ^ 
+                                self.iv[i])
+            tmp_str += final_val[16:]
+            tmp_str = list(tmp_str)
+            final_val = ''.join(tmp_str)
+        
         # remove final delimeter '1'
         if rm_del != None:
             final_val = final_val.rsplit('1', 1)[0]
-        
+                
         return final_val
-    
+
 class Aes256:
-    def __init__(self):
+    def __init__(self,iv=None):
         self.Nb = 4
         self.Nk = 8
         self.Nr = 14
         self.key = None
+        self.aes = Aes(self.Nb,self.Nk,self.Nr,iv)
     
     def encrypt(self,inp,key=None, delm=None):
         # generate key if key is None
@@ -344,10 +369,9 @@ class Aes256:
             self.delm = delm
         else:
             self.delm = None
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,self.delm)
+        return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,delm=None):
+    def decrypt(self,inp,key=None,iv=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -357,16 +381,15 @@ class Aes256:
         # remove delimeter if added during encryption
         if delm == None:
             self.delm = None
-        
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,self.delm)
+        return self.aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes192:
-    def __init__(self):
+    def __init__(self, iv=None):
         self.Nb = 4
         self.Nk = 6
         self.Nr = 12
         self.key = None
+        self.aes = Aes(self.Nb,self.Nk,self.Nr,iv)
     
     def encrypt(self,inp,key=None, delm=None):
         # generate key if key is None
@@ -381,10 +404,9 @@ class Aes192:
             self.delm = delm
         else:
             self.delm = None
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,self.delm)
+        return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,delm=None):
+    def decrypt(self,inp,key=None,iv=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -394,16 +416,15 @@ class Aes192:
         # remove delimeter if added during encryption
         if delm == None:
             self.delm = None
-        
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,self.delm)
+        return self.aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes128:
-    def __init__(self):
+    def __init__(self, iv=None):
         self.Nb = 4
         self.Nk = 4
         self.Nr = 10
         self.key = None
+        self.aes = Aes(self.Nb,self.Nk,self.Nr,iv)
     
     def encrypt(self,inp,key=None, delm=None):
         # generate key if key is None
@@ -418,10 +439,9 @@ class Aes128:
             self.delm = delm
         else:
             self.delm = None
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_enc(inp,self.key,self.delm)
+        return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
-    def decrypt(self,inp,key=None,delm=None):
+    def decrypt(self,inp,key=None,iv=None,delm=None):
         # check if key exists if no keys are provided as parameter
         if key == None:
             assert self.key != None, "key not provided"
@@ -431,15 +451,13 @@ class Aes128:
         # remove delimeter if added during encryption
         if delm == None:
             self.delm = None
-        
-        aes = Aes(self.Nb,self.Nk,self.Nr)
-        return aes.multi_block_process_dec(inp,self.key,self.delm)
+        return self.aes.multi_block_process_dec(inp,self.key,self.delm)
 
-aes256 = Aes256()
+aes256 = Aes256(True)
 key = [0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0x0c,0x0d,
       0x0e,0x0f,0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1a,0x1b,
       0x1c,0x1d,0x1e,0x1f]
 
-cipher = aes256.encrypt("0123456789abcdef",key,True)
+cipher = aes256.encrypt("0123456789abcd",key,True)
 print(cipher)
 print("plain:",aes256.decrypt(cipher,aes256.key,True))
