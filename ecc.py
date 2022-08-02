@@ -52,9 +52,56 @@ def hmac(key: bytearray, msg: bytearray,block_s: int = 128, machashf=Sha512,    
     return hashobj.digest()
 
 # Cipher-based Message Authentication Code
-class Cmac:
-    def __init__(cipher=Aes256):
-        pass
+def cmac(key: bytearray, msg: bytearray, cipher=Aes256, keylen=32):
+    if isinstance(msg,str):
+        msg = msg.encode()
+    # seperate msg into blocks
+    if(len(msg) != 16):
+        substr =  [msg[i:i+16] for i in range(0, len(msg), 16)]
+    else:
+        substr = [msg]
+
+    ZERO = "0"*keylen
+    RB = 0x87
+    BSIZE = 16
+    length = len(msg)
+    msb = lambda n : int(hex(n)[2:].ljust(keylen*2,'0'),16) >> keylen*8-1
+    ciph = int(cipher.encrypt(ZERO,key),16)
+    k1 = ciph << 1
+    if msb(ciph) == 1:
+        k1 ^= RB
+    k2 = k1 << 1
+    if msb(k1) == 1:
+        k2 ^= RB
+    n = ceil(length/BSIZE)
+    if n == 0:
+        n = 1
+        flag = False
+    else:
+        if length%BSIZE == 0:
+            flag = True
+        else:
+            flag = False
+    if flag:
+        msg_last = bytearray()
+        for i in range(16):
+            msg_last.append(substr[n][i] ^ k1)
+    else:
+        m_n = (substr[n] + b'1') + '0'*(keylen*8-len(substr[n])*8-1)
+        msg_last = bytearray()
+        for i in range(16):
+            msg_last.append(substr[n][i] ^ k2)
+    x = ZERO
+    for i in range(1,n):
+        y = bytearray()
+        for j in range(16):
+            y.append(x ^ substr[i][j])
+        x = cipher.encrypt(y,key)
+    y = bytearray()
+    hex_x = bytes.fromhex(x)
+    for i in range(16):
+        y.append(m_last[i] ^ hex_x[i])
+    return cipher.encrypt(y,key)
 
 # Hash-based Key Deravation Function
 def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
@@ -178,17 +225,17 @@ class Ecies:
             key = hex(key)[2:].zfill(self.keylen*2)
             key = bytes.fromhex(key)
         
-        self.tag = hmac(key,msg.encode(),block_s,alg)
-        return self.tag
+        self.htag = hmac(key,msg.encode(),block_s,alg)
+        return self.htag
     
     # verify HMAC, the receiver has to verify it to make sure message is
     # not tampered
     def verify_hmac(self,msg,key,tag=None,alg=Sha512,block_s=128):
         if tag == None:
-            if self.tag == None:
+            if self.htag == None:
                 raise Exception("no tag provided")
         else:
-            self.tag = tag
+            self.htag = tag
 
         # if key is an integer, convert to byte array
         if isinstance(key,int):
@@ -197,16 +244,39 @@ class Ecies:
         self.unv_tag = hmac(key,msg.encode(),block_s,alg)
         
         # check tag
-        self.tag_verified = self.tag == self.unv_tag
+        self.tag_verified = self.htag == self.unv_tag
         if not self.tag_verified:
             raise Exception("wrong tag, message is tampered")
         return True
     
-    def gen_cmac():
-        pass
+    def gen_cmac(self,msg,key,cipher=Aes256,aeskeylen=32):
+        # if key is an integer, convert to byte array
+        if isinstance(key,int):
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
+        
+        self.ctag = cmac(key,msg.encode(),cipher,aeskeylen)
+        return self.ctag
+    
+    
+    def check_cmac(self,msg,key,tag=None,cipher=Aes256,aeskeylen=32):
+        if tag == None:
+            if self.ctag == None:
+                raise Exception("no tag provided")
+        else:
+            self.ctag = tag
 
-    def check_cmac():
-        pass
+        # if key is an integer, convert to byte array
+        if isinstance(key,int):
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
+        self.unv_tag = cmac(key,msg.encode(),cipher,aeskeylen)
+        
+        # check tag
+        self.tag_verified = self.tag == self.unv_tag
+        if not self.tag_verified:
+            raise Exception("wrong tag, message is tampered")
+        return True
     
     # msg is the message you want to encrypt
     # key is the established shared secret using the KDF as a bytearray
