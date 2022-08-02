@@ -79,18 +79,6 @@ def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
         t = hmac(prk,t+inf+bytes([i]),blocklen,hashf,"d")
         okm+=t
     return okm[:outlen]
-
-def hkdft(length: int, ikm, salt: bytes = b"", info: bytes = b"") -> bytes:
-    """Key derivation function"""
-    if len(salt) == 0:
-        salt = bytes([0] * 32)
-    prk = hmac(salt, ikm,64,sha256,'d')
-    t = b""
-    okm = b""
-    for i in range(ceil(length / 32)):
-        t = hmac(prk, t + info + bytes([i + 1]),64,sha256,'d')
-        okm += t
-    return okm[:length]
     
 #  only for odd prime field size p. For field size q = 2^m, use integer 
 #  conversion specified in ANSI X9.62
