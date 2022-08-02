@@ -40,6 +40,9 @@ class Sha512:
         
         if isinstance(inp,int):
             inp = str(inp)
+        elif isinstance(inp,bytes):
+            inp = str(inp)
+        
         length = len(inp)
         bitlen = length<<3
         padding = ((1024-(bitlen+1)-128) % 1024)-7
@@ -48,7 +51,10 @@ class Sha512:
         w = []
         for i in range(0,block_bytes_len//8):
             w.append(0)
-        byte_arr = bytearray(inp.encode('charmap'))
+        if type(inp) == type(""):
+            byte_arr = bytearray(inp.encode('charmap'))
+        else:
+            byte_arr = inp
         byte_arr.append(0x80) # append 1
         
         # padding
@@ -117,12 +123,13 @@ class Sha512:
             V[2] = V[1]
             V[1] = V[0]
             V[0] = (t1 + t2) & 0xffffffffffffffff
-        for i in range(0,8):
-            print("fucking piece of shit", hex(self.H[i]))
+        
         for i in range(0,8):
             self.H[i] = (self.H[i] + V[i]) & 0xffffffffffffffff
-            # print(hex(V[i]))
         return self.H;
     
-    def __str__(self):
+    def digest(self):
+        return bytearray.fromhex(self.ret)
+    
+    def hexdigest(self):
         return self.ret
