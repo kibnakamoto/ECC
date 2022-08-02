@@ -58,23 +58,40 @@ class Cmac:
 
 # Hash-based Key Deravation Function
 def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
-         outlen=42):
+         outlen=32,keylen=66):
     # if no salt is provided, salt = zero of length hashlen
     if salt == None:
         salt = bytes.fromhex("00"*hashlen)
+    elif isinstance(salt,str):
+        salt = bytes.fromhex(salt)
     
+    # make sure data types of info and key are bytes, same thing for salt above
+    if isinstance(inf,str):
+        inf = bytes.fromhex(inf)
     if isinstance(key,int):
-        key = key.to_bytes(ceil(len(hex(key)[2:])/2),'big')
-    
+        key = hex(key)[2:].zfill(keylen*2)
+        key = bytes.fromhex(key)
     prk = hmac(salt,key,blocklen,hashf,"d")
     n = ceil(outlen/hashlen)
     t = b""
     okm = b""
     for i in range(1,n+1):
-        t = hmac(prk,t+inf+bytes([i]),blocklen,hashf,"digest")
+        t = hmac(prk,t+inf+bytes([i]),blocklen,hashf,"d")
         okm+=t
     return okm[:outlen]
 
+def hkdft(length: int, ikm, salt: bytes = b"", info: bytes = b"") -> bytes:
+    """Key derivation function"""
+    if len(salt) == 0:
+        salt = bytes([0] * 32)
+    prk = hmac(salt, ikm,64,sha256,'d')
+    t = b""
+    okm = b""
+    for i in range(ceil(length / 32)):
+        t = hmac(prk, t + info + bytes([i + 1]),64,sha256,'d')
+        okm += t
+    return okm[:length]
+    
 #  only for odd prime field size p. For field size q = 2^m, use integer 
 #  conversion specified in ANSI X9.62
 class Ecdsa:
@@ -158,7 +175,7 @@ class Ecdsa:
 
 # from https://www.secg.org/sec1-v2.pdf
 class Ecies:
-    def __init__(keylen=66, encypt_alg=Aes256, curve=curves.Secp521r1):
+    def __init__(self,keylen=66, encypt_alg=Aes256, curve=curves.Secp521r1):
         self.curve = curve
         self.keylen = keylen # shared-key length of hkdf shared key in octets
         self.tag = None
@@ -166,17 +183,18 @@ class Ecies:
         self.enc = None
     
     # generate hmac of sender
-    def gen_hmac(msg,key,alg=sha256,block_s=64):
+    def gen_hmac(self,msg,key,alg=sha256,block_s=64):
         # if key is an integer, convert to byte array
         if isinstance(key,int):
-            key = key.to_bytes(self.keylen, 'big')
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
         
         self.tag = hmac(key,msg.encode(),block_s,alg)
         return self.tag
     
     # verify HMAC, the receiver has to verify it to make sure message is
     # not tampered
-    def check_hmac(msg,key,tag=None,alg=sha256,block_s=64):
+    def check_hmac(self,msg,key,tag=None,alg=sha256,block_s=64):
         if tag == None:
             if self.tag == None:
                 raise Exception("no tag provided")
@@ -185,7 +203,8 @@ class Ecies:
 
         # if key is an integer, convert to byte array
         if isinstance(key,int):
-            key = key.to_bytes(self.keylen, 'big')
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
         self.unv_tag = hmac(key,msg.encode(),block_s,alg)
         
         # check tag
@@ -205,7 +224,7 @@ class Ecies:
     # tag, verify that tag equals True 
     # if you want iv generated for you, then iv should equal True, no iv is None
     # add delimeter if msg length isn't 16 octets, None for none
-    def encrypt(msg,key, iv=None, delimeter=None):
+    def encrypt(self,msg,key, iv=None, delimeter=None):
         # supported Symmetric Encryption Schemes
         # AES–128 in CBC mode
         # AES–192 in CBC mode
@@ -213,7 +232,8 @@ class Ecies:
         
         # if key is an integer, convert to byte array
         if isinstance(key,int):
-            key = key.to_bytes(self.keylen, 'big')
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
         
         self.key = key
         self.enc = self.encrypt_alg(iv)
@@ -221,10 +241,11 @@ class Ecies:
         self.cipher = self.enc.encrypt(msg,key,delimeter)
         return self.cipher
     
-    def decrypt(cipher,key,iv=None,delimeter=None):
+    def decrypt(self,cipher,key,iv=None,delimeter=None):
         # if key is an integer, convert to byte array
         if isinstance(key,int):
-            key = key.to_bytes(self.keylen, 'big')
+            key = hex(key)[2:].zfill(self.keylen*2)
+            key = bytes.fromhex(key)
         
         # decrypt ciphertext
         try:
@@ -243,8 +264,6 @@ class Ecies:
 # 512-bit Secure Hashing Algorithm
 class ecdhe_ecdsa_aes256_sha512:
     pass
-test = hkdf(bytes.fromhex('0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b'),salt=bytes.fromhex('000102030405060708090a0b0c'),hashf=sha256,hashlen=32,blocklen=64,inf=bytes.fromhex('f0f1f2f3f4f5f6f7f8f9'),outlen=42)
 
-for i in range(42):
-    print(hex(test[i])[2:],end='')
-print()
+# calculate keylen in ECIES using:
+# ceil(bitkeysize/8)
