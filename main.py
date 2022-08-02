@@ -5,24 +5,33 @@ from ecc import *
 from hashlib import sha256 # for shared key
 import secrets
 
+# push aes to github
+# push ecc on github
+
 # Sha512 for hkdf works for any key size as well. sha256 would be more
 # efficient for key sizes used by AES but in terms of security(not counting
 # side channel attacks), Sha512 implmenetation defined on this project
 # would be more secure
 
-""" Constants to choose for encryption """
+""" Constants for encryption """
+# Current constants are for aes256-sha256 for HKDF and HMAC
 HASHLEN = 32 # length of hash output in octets
 HASH_BLOCK_SIZE = 64 # length of single block in octets in hashing algorithm
 HKDF_SIZE = 32 # length of HKDF output in octects
 HKDF_HASHF = sha256 # hashing algorithm used in HKDF
 SHARED_KEY_SIZE = 66 # length of shared key in octets
 MSG_SALT = "" # Message Salt
-
+ECIES_SYMM_ENC_ALG = Aes256 # ECIES Symmetric Encryption Algorithm
+ECIES_HMAC_HASHF = Sha512 # ECIES HMAC Hash Function
+ECIES_HMAC_HASHF_BLOCK_SIZE = 128
 # TODO: test ecc.field_e_to_int function using non-prime fields
 # TODO: make ECDSA implementation compatible with non-prime galois field
 
 # calculate key size of shared key in octets
 # ceil(bitsize / 8)
+
+# message to encrypt
+msg = "abcdabcdabcdabcd"
 
 curve = Secp521r1()
 alice_secp521r1 = Secp521r1()
@@ -71,16 +80,38 @@ a_shared_sec = hkdf(a_shared_sec, hkdf_salt, HKDF_HASHF, HASHLEN,
 b_shared_sec = hkdf(b_shared_sec, hkdf_salt, HKDF_HASHF, HASHLEN,
                     HASH_BLOCK_SIZE,hkdf_info,HKDF_SIZE,SHARED_KEY_SIZE)
 
-if a_shared_sec == b_shared_sec:
-    print("same secret key")
+print("shared_secret match:", a_shared_sec == b_shared_sec)
 
 ecdsa = Ecdsa(curve)
 
 # generate Alice's signature with ECDSA
-signature = ecdsa.gen_signature("abc", alice.pri_k)
+signature = ecdsa.gen_signature(msg, alice.pri_k)
 
 # let Bob verify Alice's signature
 verify_sign = ecdsa.verify_signature(signature, ecdsa.m_hash,
                                      alice.pub_k)
+# signature generated for verification is ecdsa.unauth_sign
 print("signature gen: ", signature)
 print("signature sign:", verify_sign)
+
+ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,Secp521r1)
+
+# Alice generates tag and sends it to Bob
+tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
+                     ECIES_HMAC_HASHF_BLOCK_SIZE)
+
+# no IV in ECIES according to SEC 1, ver 1.9
+
+# Alice encrypts message
+ciphertext = ecies.encrypt(msg,a_shared_sec,None,True)
+
+# Bob decrypts ciphertext
+plaintext = ecies.decrypt(ciphertext,b_shared_sec,None,True)
+
+# Bob verifies Alice's tag
+verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
+
+print("tag:\t", tag)
+print("ciphertext:\t", ciphertext)
+print("plaintext:/t", plaintext)
+print("verify_tag:\t", verify_tag)
