@@ -149,29 +149,30 @@ class Ecdsa:
         u2 = (signature[0]*inv_y) % self.n
         g_u1 = curves.montgomery_ladder(self.G,u1,self.p,self.a)
         a_pub_key_u2 = curves.montgomery_ladder(a_pub_key,u2,self.p,self.a)
-        pointX = curves.point_add(g_u1[0],g_u1[1],
-                                  a_pub_key_u2[0],a_pub_key_u2[1],
-                                  self.p,self.a)
+        self.unauth_sign = curves.point_add(g_u1[0],g_u1[1],
+                                            a_pub_key_u2[0],
+                                            a_pub_key_u2[1],
+                                            self.p,self.a)
         
-        if pointX == (0,1):
+        if self.unauth_sign == (0,1):
             print("generated verification signature is point at infinity")
             return float("inf")
         
-        if pointX[0] == signature[0]:
+        if self.unauth_sign[0] == signature[0]:
             return True
         return False
 
 # from https://www.secg.org/sec1-v2.pdf
 class Ecies:
-    def __init__(self,keylen=66, encypt_alg=Aes256, curve=curves.Secp521r1):
+    def __init__(self,keylen=66, encrypt_alg=Aes256, curve=curves.Secp521r1):
         self.curve = curve
         self.keylen = keylen # shared-key length of hkdf shared key in octets
         self.tag = None
-        self.encypt_alg = encrypt_alg
+        self.encrypt_alg = encrypt_alg
         self.enc = None
     
     # generate hmac of sender
-    def gen_hmac(self,msg,key,alg=sha256,block_s=64):
+    def gen_hmac(self,msg,key,alg=Sha512,block_s=128):
         # if key is an integer, convert to byte array
         if isinstance(key,int):
             key = hex(key)[2:].zfill(self.keylen*2)
@@ -182,7 +183,7 @@ class Ecies:
     
     # verify HMAC, the receiver has to verify it to make sure message is
     # not tampered
-    def check_hmac(self,msg,key,tag=None,alg=sha256,block_s=64):
+    def verify_hmac(self,msg,key,tag=None,alg=Sha512,block_s=128):
         if tag == None:
             if self.tag == None:
                 raise Exception("no tag provided")
