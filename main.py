@@ -5,7 +5,10 @@ from ecc import *
 from hashlib import sha256 # for shared key
 import secrets
 
-# Sha512 for hkdf works for any key size as well. sha256 would be more efficient for key sizes used by AES but in terms of security(not counting side channel attacks), Sha512 implmenetation defined on this project would be more secure
+# Sha512 for hkdf works for any key size as well. sha256 would be more
+# efficient for key sizes used by AES but in terms of security(not counting
+# side channel attacks), Sha512 implmenetation defined on this project
+# would be more secure
 
 """ Constants to choose for encryption """
 HASHLEN = 32 # length of hash output in octets
