@@ -66,8 +66,11 @@ def cmac(key: bytearray, msg: bytearray, cipher=Aes256, keylen=32):
     BSIZE = 16
     length = len(msg)
     msb = lambda n : int(hex(n)[2:].ljust(keylen*2,'0'),16) >> keylen*8-1
-    ciph = int(cipher.encrypt(ZERO,key),16)
-    k1 = ciph << 1
+    ciph = bytes.fromhex(cipher.encrypt(ZERO,key))
+    k1,k2 = bytearray(),bytearray()
+    for i in range(16):    
+        k1.append(ciph << 1)
+    
     if msb(ciph) == 1:
         k1 ^= RB
     k2 = k1 << 1
@@ -85,14 +88,14 @@ def cmac(key: bytearray, msg: bytearray, cipher=Aes256, keylen=32):
     if flag:
         msg_last = bytearray()
         for i in range(16):
-            msg_last.append(substr[n][i] ^ k1)
+            msg_last.append(substr[n-1][i] ^ k1[i])
     else:
-        m_n = (substr[n] + b'1') + '0'*(keylen*8-len(substr[n])*8-1)
+        m_n = (substr[n-1] + b'1') + '0'*(keylen*8-len(substr[n-1])*8-1)
         msg_last = bytearray()
         for i in range(16):
-            msg_last.append(substr[n][i] ^ k2)
-    x = ZERO
-    for i in range(1,n):
+            msg_last.append(substr[n-1][i] ^ k2[i])
+    x = 0
+    for i in range(0,n-1):
         y = bytearray()
         for j in range(16):
             y.append(x ^ substr[i][j])
@@ -241,11 +244,11 @@ class Ecies:
         if isinstance(key,int):
             key = hex(key)[2:].zfill(self.keylen*2)
             key = bytes.fromhex(key)
-        self.unv_tag = hmac(key,msg.encode(),block_s,alg)
+        self.unv_htag = hmac(key,msg.encode(),block_s,alg)
         
         # check tag
-        self.tag_verified = self.htag == self.unv_tag
-        if not self.tag_verified:
+        self.htag_verified = self.htag == self.unv_htag
+        if not self.htag_verified:
             raise Exception("wrong tag, message is tampered")
         return True
     
@@ -270,11 +273,11 @@ class Ecies:
         if isinstance(key,int):
             key = hex(key)[2:].zfill(self.keylen*2)
             key = bytes.fromhex(key)
-        self.unv_tag = cmac(key,msg.encode(),cipher,aeskeylen)
+        self.unv_ctag = cmac(key,msg.encode(),cipher,aeskeylen)
         
         # check tag
-        self.tag_verified = self.tag == self.unv_tag
-        if not self.tag_verified:
+        self.ctag_verified = self.tag == self.unv_ctag
+        if not self.ctag_verified:
             raise Exception("wrong tag, message is tampered")
         return True
     
