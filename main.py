@@ -14,7 +14,7 @@ import secrets
 # would be more secure
 
 """ Constants for encryption """
-# Current constants are for aes256-sha256 for HKDF and HMAC
+# Current constants are for aes256-sha256 for HKDF, sha512 for HMAC, aes256 for CMAC
 HASHLEN = 32 # length of hash output in octets
 HASH_BLOCK_SIZE = 64 # length of single block in octets in hashing algorithm
 HKDF_SIZE = 32 # length of HKDF output in octects
@@ -24,6 +24,9 @@ MSG_SALT = "" # Message Salt
 ECIES_SYMM_ENC_ALG = Aes256 # ECIES Symmetric Encryption Algorithm
 ECIES_HMAC_HASHF = Sha512 # ECIES HMAC Hash Function
 ECIES_HMAC_HASHF_BLOCK_SIZE = 128
+ECIES_CMAC_CIPHER = Aes256 # ECIES CMAC cipher
+ECIES_CMAC_CIPHER_KEY_LEN = 32 # ECIES CMAC cipher key length in octets
+
 # TODO: test ecc.field_e_to_int function using non-prime fields
 # TODO: make ECDSA implementation compatible with non-prime galois field
 
@@ -34,10 +37,8 @@ ECIES_HMAC_HASHF_BLOCK_SIZE = 128
 msg = "abcdabcdabcdabcd"
 
 curve = Secp521r1()
-alice_secp521r1 = Secp521r1()
-bob_secp521r1 = Secp521r1()
-weierstrass = Weierstrass(bob_secp521r1.p,bob_secp521r1.a,
-                          bob_secp521r1.b)
+weierstrass = Weierstrass(curve.p,curve.a,
+                          curve.b)
 alice = Curve(curve)
 bob = Curve(curve)
 
@@ -97,8 +98,10 @@ print("signature sign:", verify_sign)
 ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,Secp521r1)
 
 # Alice generates tag and sends it to Bob
-tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
-                     ECIES_HMAC_HASHF_BLOCK_SIZE)
+# tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
+#                      ECIES_HMAC_HASHF_BLOCK_SIZE)
+tag = ecies.gen_cmac(msg,a_shared_sec,ECIES_CMAC_CIPHER,
+                     ECIES_CMAC_CIPHER_KEY_LEN)
 
 # no IV in ECIES according to SEC 1, ver 1.9
 
@@ -109,9 +112,12 @@ ciphertext = ecies.encrypt(msg,a_shared_sec,None,True)
 plaintext = ecies.decrypt(ciphertext,b_shared_sec,None,True)
 
 # Bob verifies Alice's tag
-verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
+# verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
+verify_tag = ecies.verify_cmac(plaintext,b_shared_sec,tag,
+                               ECIES_CMAC_CIPHER,
+                               ECIES_CMAC_CIPHER_KEY_LEN)
 
 print("tag:\t", tag)
 print("ciphertext:\t", ciphertext)
-print("plaintext:/t", plaintext)
+print("plaintext:\t", plaintext)
 print("verify_tag:\t", verify_tag)
