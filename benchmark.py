@@ -1,6 +1,7 @@
 # bench mark tests. mostly for time and a little bit for accuracy
 from hashlib import *
 from time import time
+from pprint import pprint
 import secrets
 import tracemalloc
 from decimal import Decimal
@@ -164,10 +165,12 @@ class Benchmark_Hkdf():
     def __call__(self):
         return (self.hkdf_keys)
 
+# ECIES Benchmark also verifies the symmetric encryption algorithm used
+# as well as HMAC
 class Benchmark_Ecies:
     def __init__(self,hkdf_keys,data=None,length=1000,data_maxsize=100,
                  curve=Secp521r1,keylen=66,symm_alg=Aes256,
-                 symmkey_sise = 32,hmac_hashf=Sha512,hashf_block_size=128):
+                 symmkey_sise = 32,hmac_hashf=Sha512,hashf_block_size=128,inp='y'):
         ecies = Ecies(keylen,symm_alg,curve)
         a_sc,b_sc = hkdf_keys[0],hkdf_keys[1]
         tags = []
@@ -178,6 +181,7 @@ class Benchmark_Ecies:
                 data = tuple(data)
         tags_time = time()
         
+        """ Time Tests """
         # Alice generates tag and sends it to Bob
         for i in range(length):
             tags.append(ecies.gen_hmac(data[i],a_sc[i],hmac_hashf,
@@ -192,14 +196,55 @@ class Benchmark_Ecies:
         for i in range(length):
             ciphertexts.append(ecies.encrypt(data[i],a_sc[i], None, True))
         encrypt_time = time()-encrypt_time
-        plaintext = []
+        plaintexts = []
         decrypt_time = time()
         
         # Bob decrypts ciphertext
-        plaintext = ecies.decrypt(ciphertext,b_sc[i],None, True)
+        for i in range(length):
+            plaintexts.append(ecies.decrypt(ciphertexts[i],b_sc[i],None, True))
+        decrypt_time = time()-decrypt_time
+        verify_tags = []
+        tag_verifi_time = time()
         
         # Bob verifies Alice's tag
-        verify_tag = ecies.verify_hmac(plaintext,b_sc[i],)
+        for i in range(length):
+            verify_tags.append(ecies.verify_hmac(plaintexts[i],b_sc[i], tags[i]
+                                                 hmac_hashf,hashf_block_size))
+        tag_verifi_time = time()-tag_verifi_time
+
+        """ Accuracy Tests """
+        wrong_tag_count = 0
+        wrong_plaintext_count = 0
+        for i in range(length):
+            if verify_tags[i] == False:
+                print("wrong tag at index: ", i)
+                wrong_tag_count+=1
+            if plaintexts[i] != data[i]:
+                print("wrong plaintext at index: ", i)
+                wrong_plaintext_count+=1
+        
+        print("\n---------------- ECIES TESTS ----------------")
+        print(f"\ndata length = {length}\ncurve: {type(curve)}")
+        print(f"{length} tags calculation time: {tags_time}")
+        print(f"tag calculation time: {Decimal(Decimal(tags_time)/length)}")
+        print(f"{length} ciphertexts calculation time: {encrypt_time}")
+        print(f"encryption calculation time: {Decimal(Decimal(encrypt_time)/
+                                                              length)}")
+        print(f"{length} plaintexts calculation time: {decrypt_time}")
+        print(f"decryption calculation time: {Decimal(Decimal(decrypt_time)/
+                                                              length)}")
+        print(f"{length} tag verifications calculation time: {tag_verifi_time}")
+        print(f"tag verifications calculation time: ",
+              Decimal(Decimal(tag_verifi_time)/length))
+        
+        # if asked for specific data or have wrong data
+        if wrong_tag_count != 0 or wrong_plaintext_count != 0 or inp == 'y':
+            for i in range(length):
+                pprint('i:\t\t',i)
+                pprint("tag: ", tags[i])
+                pprint("secure: ", verify_tags[i]))
+                pprint("ct: "ciphertexts[i])
+                pprint("pt: ", plaintexts[i])
     
     def gen_rand_strings(length=1000, maxsize=100):
         data = []
