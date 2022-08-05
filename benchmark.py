@@ -165,8 +165,48 @@ class Benchmark_Hkdf():
         return (self.hkdf_keys)
 
 class Benchmark_Ecies:
-    def __init__(self,hkdf_keys,curve=Secp521r1,keylen=66, symm_alg=Aes256,symmkey_sise = 32):
+    def __init__(self,hkdf_keys,data=None,length=1000,data_maxsize=100,
+                 curve=Secp521r1,keylen=66,symm_alg=Aes256,
+                 symmkey_sise = 32,hmac_hashf=Sha512,hashf_block_size=128):
+        ecies = Ecies(keylen,symm_alg,curve)
+        a_sc,b_sc = hkdf_keys[0],hkdf_keys[1]
+        tags = []
+        if data == None:
+            data = gen_rand_strings(length,data_maxsize)
+        else:
+            if not isinstance(data, tuple):
+                data = tuple(data)
+        tags_time = time()
         
+        # Alice generates tag and sends it to Bob
+        for i in range(length):
+            tags.append(ecies.gen_hmac(data[i],a_sc[i],hmac_hashf,
+                                       hashf_block_size))
+        tags_time = time()-tags_time
+        ciphertexts = []
+        encrypt_time = time()
+        # without delimeter data comparssion will be complicated when data length 
+        # isn't a multiple of 16 so it is equal to True
+        
+        # Alice encrypts message
+        for i in range(length):
+            ciphertexts.append(ecies.encrypt(data[i],a_sc[i], None, True))
+        encrypt_time = time()-encrypt_time
+        plaintext = []
+        decrypt_time = time()
+        
+        # Bob decrypts ciphertext
+        plaintext = ecies.decrypt(ciphertext,b_sc[i],None, True)
+        
+        # Bob verifies Alice's tag
+        verify_tag = ecies.verify_hmac(plaintext,b_sc[i],)
+    
+    def gen_rand_strings(length=1000, maxsize=100):
+        data = []
+        for i in range(length):
+            n = secrets.randbelow(maxsize)
+            data.append(secrets.token_bytes(n).decode('charmap'))
+        return tuple(data)
 
 class Benchmark_Ecdsa:
     pass
