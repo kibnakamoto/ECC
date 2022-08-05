@@ -1,4 +1,4 @@
-# ECIES, ECDSA, HMAC, CMAC, ECC Public Key Generation
+# ECIES, ECDSA, HMAC, ECC Public Key Generation
 
 Jul 16, 2022
 
