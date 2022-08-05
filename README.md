@@ -18,4 +18,6 @@ Advanced Encryption Standard
 
 Only Weiestress curve is used
 
-Curves: sect571k1, secp521r1, secp256k1, secp256r1
+Only prime field sizes are supported
+
+Curves: secp521r1, secp256k1, secp256r1
