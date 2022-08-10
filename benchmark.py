@@ -30,7 +30,7 @@ def genrandkeylist_wtimer(n,to,pair):
 
 # test key generation of curves from the curves module
 class Benchmark_Time_Curves:
-    def __init__(self,curve=curves.Secp521r1,prikey_count=1000):
+    def __init__(self,curve=Secp521r1,prikey_count=1000):
         self.curve = curve
         pair = Curve(self.curve)
         
@@ -46,8 +46,8 @@ class Benchmark_Time_Curves:
         self.endpubkey = time()
         
         # print values
-        print("---------------------")
-        print("Benchmark_Time_Curves")
+        print("-------- Time (Seconds) --------")
+        print(f"curve: {type(curve)}")
         print(f"key pair count = {len(self.prikeys)}")
         print(f"{prikey_count} private keys gen time:", 
               Decimal(self.randkeytimer))
@@ -88,6 +88,7 @@ class Benchmark_Memory_Curves:
                                    self.after_prikey_memory
         # print values
         print(f"\n-------- MEMORY (bytes) --------\n")
+        print(f"curve: {type(curve)}")
         print("memory useage before calculations:\t", 
               before_calc_memory)
         print(f"memory useage after private key calculations:\t",
@@ -120,7 +121,7 @@ class Benchmark_Hkdf():
         for i in range(length):
             a_shared_secrets.append(weierstrass.multiply(pubkeys1[i],prikeys1[i])[0])
         start_a_sc = time()-start_a_sc
-        start_b_sc time()
+        start_b_sc = time()
         for i in range(length):
             b_shared_secrets.append(weierstrass.multiply(pubkeys2[i],prikeys2[i])[0])
         start_b_sc = time()-start_b_sc
@@ -146,6 +147,9 @@ class Benchmark_Hkdf():
         ab_sc_correct = 0
         for i in range(length):
             ab_sc_correct |= int(a_shared_secrets == b_shared_secrets)
+        
+        print("-"*len(f"curve: {type(curve)}"))
+        print(f"curve: {type(curve)}")
         if bool(ab_sc_correct):
             print("--------------SUCCESS--------------")
             print("correct shared secret(s) generated")
@@ -208,7 +212,7 @@ class Benchmark_Ecies:
         
         # Bob verifies Alice's tag
         for i in range(length):
-            verify_tags.append(ecies.verify_hmac(plaintexts[i],b_sc[i], tags[i]
+            verify_tags.append(ecies.verify_hmac(plaintexts[i],b_sc[i], tags[i],
                                                  hmac_hashf,hashf_block_size))
         tag_verifi_time = time()-tag_verifi_time
 
@@ -224,15 +228,16 @@ class Benchmark_Ecies:
                 wrong_plaintext_count+=1
         
         print("\n---------------- ECIES TESTS ----------------")
+        print(f"curve: {type(curve)}")
         print(f"\ndata length = {length}\ncurve: {type(curve)}")
         print(f"{length} tags calculation time: {tags_time}")
         print(f"tag calculation time: {Decimal(Decimal(tags_time)/length)}")
         print(f"{length} ciphertexts calculation time: {encrypt_time}")
-        print(f"encryption calculation time: {Decimal(Decimal(encrypt_time)/
-                                                              length)}")
+        print(f"encryption calculation time: ",
+              Decimal(Decimal(encrypt_time)/length))
         print(f"{length} plaintexts calculation time: {decrypt_time}")
-        print(f"decryption calculation time: {Decimal(Decimal(decrypt_time)/
-                                                              length)}")
+        print(f"decryption calculation time: ",
+              Decimal(Decimal(decrypt_time)/length))
         print(f"{length} tag verifications calculation time: {tag_verifi_time}")
         print(f"tag verifications calculation time: ",
               Decimal(Decimal(tag_verifi_time)/length))
@@ -242,8 +247,8 @@ class Benchmark_Ecies:
             for i in range(length):
                 pprint('i:\t\t',i)
                 pprint("tag: ", tags[i])
-                pprint("secure: ", verify_tags[i]))
-                pprint("ct: "ciphertexts[i])
+                pprint("secure: ", verify_tags[i])
+                pprint("ct: ",ciphertexts[i])
                 pprint("pt: ", plaintexts[i])
     
     def gen_rand_strings(length=1000, maxsize=100):
@@ -256,18 +261,23 @@ class Benchmark_Ecies:
 class Benchmark_Ecdsa:
     pass
 
-# time
+# time, memory, and accuracy tests. Random tests.
+# How code reacts to wrong data doesn't exist in benchmark tests.
 curve = Secp521r1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
-curve = Secp256k1()
-data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
-curve = Secp256r1()
-data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+hkdf_test = Benchmark_Hkdf(data,data1,hashf-Sha512,curve=Secp521r1,
+                           hashlen=64,hash_block_size=128,size=32,sk_size=66)
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=Secp521r1,keylen=66,
+                              symm_alg=Aes256,symmkey_sise=32,
+                              hmac_hashf=Sha512,hashf_block_size=128,inp='y')
+ecdsa_test = None
 
-# memory
-curve = Secp521r1()
-Benchmark_Memory_Curves(curve=curve,prikey_count=10)
 curve = Secp256k1()
-Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+
 curve = Secp256r1()
-Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
