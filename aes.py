@@ -294,11 +294,13 @@ class Aes:
     
     def multi_block_process_enc(self,inp,key, add_del=None):
         # seperate input into 16-byte substrings
-        if(len(inp) != 4*self.Nb):
+        if len(inp) == 0:
+            substr = [""]
+        elif len(inp) != 16:
             substr =  [inp[i:i+16] for i in range(0, len(inp), 16)]
         else:
             substr = [inp]
-                
+        
         # add string delimeter so that in decryption, padding is deleted
         length_substr = len(substr[len(substr)-1])
         
