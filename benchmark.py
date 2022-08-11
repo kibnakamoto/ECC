@@ -63,9 +63,10 @@ class Benchmark_Time_Curves:
                                      prikey_count) +
               Decimal(Decimal(self.endpubkey)-Decimal(self.startpubkey)))
         print("DONE")
-    
+        self.pair = (self.prikeys,self.pubkeys)
+        
     def __call__(self):
-        return (self.prikeys,self.pubkeys)
+        return self.pair
 
 # test key generation memory usage of curves from the curves module
 class Benchmark_Memory_Curves:
@@ -100,12 +101,13 @@ class Benchmark_Memory_Curves:
               get_traced_memory()[1])
         print("DONE")
         tracemalloc.stop()
-    
+        self.pair = (self.prikeys,self.pubkeys)
+        
     def __call__(self):
-        return (self.prikeys,self.pubkeys)
+        return self.pair
 
 class Benchmark_Hkdf():
-    def __init__(data1,data2,hashf=Sha512,curve=Secp521r1,hashlen=64,
+    def __init__(self,data1,data2,hashf=Sha512,curve=Secp521r1,hashlen=64,
                  hash_block_size=128,size=32,sk_size=66):
         # use 2 sets of data Alice's and Bob's
         prikeys1, pubkeys1,length = data1[0],data1[1],len(data1[0])
@@ -119,11 +121,11 @@ class Benchmark_Hkdf():
         
         # find Alice's shared secrets
         for i in range(length):
-            a_shared_secrets.append(weierstrass.multiply(pubkeys1[i],prikeys1[i])[0])
+            a_shared_secrets.append(weierstrass.multiply(pubkeys2[i],prikeys1[i])[0])
         start_a_sc = time()-start_a_sc
         start_b_sc = time()
         for i in range(length):
-            b_shared_secrets.append(weierstrass.multiply(pubkeys2[i],prikeys2[i])[0])
+            b_shared_secrets.append(weierstrass.multiply(pubkeys1[i],prikeys2[i])[0])
         start_b_sc = time()-start_b_sc
         start_a_sc_hkdf = time()
         
@@ -144,14 +146,11 @@ class Benchmark_Hkdf():
         start_b_sc_hkdf = time()-start_b_sc_hkdf
         
         # Test correctness
-        ab_sc_correct = 0
-        for i in range(length):
-            ab_sc_correct |= int(a_shared_secrets == b_shared_secrets)
-        
+        ab_sc_correct = a_shared_secrets == b_shared_secrets
         print("-"*len(f"curve: {type(curve)}"))
         print(f"curve: {type(curve)}")
-        if bool(ab_sc_correct):
-            print("--------------SUCCESS--------------")
+        if ab_sc_correct:
+            print("-------------SUCCESS-------------")
             print("correct shared secret(s) generated")
         else:
             print("-------------FAILURE-------------")
@@ -167,7 +166,7 @@ class Benchmark_Hkdf():
               start_b_sc_hkdf)
     
     def __call__(self):
-        return (self.hkdf_keys)
+        return self.hkdf_keys
 
 # ECIES Benchmark also verifies the symmetric encryption algorithm used
 # as well as HMAC
@@ -179,7 +178,7 @@ class Benchmark_Ecies:
         a_sc,b_sc = hkdf_keys[0],hkdf_keys[1]
         tags = []
         if data == None:
-            data = gen_rand_strings(length,data_maxsize)
+            data = self.gen_rand_strings(length,data_maxsize)
         else:
             if not isinstance(data, tuple):
                 data = tuple(data)
@@ -245,13 +244,13 @@ class Benchmark_Ecies:
         # if asked for specific data or have wrong data
         if wrong_tag_count != 0 or wrong_plaintext_count != 0 or inp == 'y':
             for i in range(length):
-                pprint('i:\t\t',i)
-                pprint("tag: ", tags[i])
-                pprint("secure: ", verify_tags[i])
-                pprint("ct: ",ciphertexts[i])
-                pprint("pt: ", plaintexts[i])
+                pprint('i:\t\t {}'.format(i))
+                pprint("tag: {}".format(tags[i]))
+                pprint("secure: {}".format(verify_tags[i]))
+                pprint("ct: {}".format(ciphertexts[i]))
+                pprint("pt: {}".format(plaintexts[i]))
     
-    def gen_rand_strings(length=1000, maxsize=100):
+    def gen_rand_strings(self,length=1000, maxsize=100):
         data = []
         for i in range(length):
             n = secrets.randbelow(maxsize)
@@ -259,25 +258,122 @@ class Benchmark_Ecies:
         return tuple(data)
 
 class Benchmark_Ecdsa:
-    pass
+    def __init__(self,a_pri_keys,a_pub_keys,data,plaintexts,
+                 curve=Secp521r1,hashf=Sha512,length=1000,
+                 keys = None):
+        ecdsa = Ecdsa(curve)
+        
+        # generate Alice's signatures
+        self.signatures = []
+        try:
+            sign_gen_time = time()
+            for i in range(length):
+                 self.signatures.append(ecdsa.gen_signature(data[i],
+                                                            a_pri_keys[i],
+                                                            keys[i], hashf))
+            sign_gen_time = time()-sign_gen_time
+        except TypeError: # if keys = None
+            sign_gen_time = time()
+            for i in range(length):
+                 self.signatures.append(ecdsa.gen_signature(data[i],
+                                                            a_pri_keys[i],
+                                                            keys, hashf))
+            sign_gen_time = time()-sign_gen_time
+        
+        # calculate hashes of decrypted data
+        hashgentime = time()
+        hashes = []
+        for i in range(length):
+            hashes.append(int(str(hashf(plaintexts[i])),16))
+        hashgentime = time()-hashgentime
+        
+        # Bob verifies Alice's signatures
+        self.unauth_signs = []
+        ver_sign_gen_time = time()
+        for i in range(length):
+            self.unauth_signs.append(ecdsa.verify_signature(self.signatures[i],
+                                                            hashes[i],
+                                                            a_pub_keys[i]))
+        ver_sign_gen_time = time()-ver_sign_gen_time
+        
+        # potentially recover public keys
+        recovered_count = 0
+        recover_time = time()
+        for i in range(length):
+            try: # silence ValueError
+                temp = ecdsa.recover_pubkey(hashes[i], self.signatures[i])
+            except ValueError:
+                continue
+            else:
+                if temp == a_pub_keys[i]:
+                    recovered_count +=1
+        recover_time = time()-recover_time
+
+         verified = self.signatures == self.unauth_signs
+        false_count = 0
+        if not verified:
+            for i in range(length):
+                false_count += int(self.signatures[i] == self.unauth_signs)
+        var_len = length-false_count
+        print("----------- ECDSA TEST -----------")
+        print(f"curve: {type(curve)}")
+        print(f"{length} signatures generation time: {sign_gen_time}")
+        print("signature generation time: ", Decimal(Decimal(sign_gen_time) /
+                                                     length))
+        print(f"{length} messages hash generation time: {hashgentime}")
+        print("message hash generation time: ", Decimal(Decimal(hashgentime) /
+                                                        length))
+        print(f"{length} verification signatures generation time: ",
+              ver_sign_gen_time)
+        print("verification signature generation time: ",
+              Decimal(Decimal(ver_sign_gen_time)/length))
+        print(f"{length} public keys recovery time: {recover_time}")
+        print(f"public key recovery time: {Decimal(Decimal(recover_time)/length)}")
+        print("  ---------- Accuracy ----------")
+        print(f"signatures verified: {verified}")
+        if not verified:
+            print("------------------- FAILURE -------------------")
+            print(f"verified {var_len} signatures out of {length}")
+        else:
+            print("--------- SUCCESS ---------")
+            print("all signatures are verified")
+        print(f"{recovered_count} public keys recovered out of {length}")
+        print("--------- PUBLIC KEY RECOVERY IS NOT ACCURATE ---------")
 
 # time, memory, and accuracy tests. Random tests.
 # How code reacts to wrong data doesn't exist in benchmark tests.
 curve = Secp521r1()
-data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
-data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
-hkdf_test = Benchmark_Hkdf(data,data1,hashf-Sha512,curve=Secp521r1,
-                           hashlen=64,hash_block_size=128,size=32,sk_size=66)
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=Sha512,curve=curve,
+                           hashlen=64,hash_block_size=128,
+                           size=32,sk_size=66).hkdf_keys
 ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
-                              data_maxsize=100,curve=Secp521r1,keylen=66,
+                              data_maxsize=100,curve=curve,keylen=66,
                               symm_alg=Aes256,symmkey_sise=32,
-                              hmac_hashf=Sha512,hashf_block_size=128,inp='y')
+                              hmac_hashf=Sha512,hashf_block_size=128,inp='n')
 ecdsa_test = None
 
 curve = Secp256k1()
-data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
-data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=sha256,curve=curve,
+                           hashlen=32,hash_block_size=64,
+                           size=32,sk_size=32).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=32,
+                              symm_alg=Aes256,symmkey_sise=32,
+                              hmac_hashf=sha256,hashf_block_size=64,inp='n')
+ecdsa_test = None
 
 curve = Secp256r1()
-data = Benchmark_Time_Curves(curve=curve,prikey_count=10)
-data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10)
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=sha256,curve=curve,
+                           hashlen=32,hash_block_size=64,
+                           size=32,sk_size=32).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=32,
+                              symm_alg=Aes256,symmkey_sise=32,
+                              hmac_hashf=sha256,hashf_block_size=64,inp='n')
+ecdsa_test = None
