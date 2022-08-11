@@ -1,17 +1,21 @@
-from sha512 import *
-# from aes import *
-from curves import *
-from ecc import *
 from hashlib import sha256 # for shared key
 import secrets
 
-# push aes to github
-# push ecc on github
+from sha512 import *
+from aes import *
+from curves import *
+from ecc import *
+# import benchmark
+
+# Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
+# Signature Algorithm - 256-bit Advanced Encryption Standard - 
+# 512-bit Secure Hashing Algorithm (ecdhe_ecdsa_aes256_sha512)
+
 
 # Sha512 for hkdf works for any key size as well. sha256 would be more
-# efficient for key sizes used by AES but in terms of security(not counting
-# side channel attacks), Sha512 implmenetation defined on this project
-# would be more secure
+# efficient for key sizes used by AES but in terms of security
+# (not counting side channel attacks), Sha512 implmenetation defined
+# on this project would be more secure
 
 """ Constants for encryption """
 # Current constants are for aes256-sha256 for HKDF, sha512 for HMAC, aes256 for CMAC
@@ -24,11 +28,6 @@ MSG_SALT = "" # Message Salt
 ECIES_SYMM_ENC_ALG = Aes256 # ECIES Symmetric Encryption Algorithm
 ECIES_HMAC_HASHF = Sha512 # ECIES HMAC Hash Function
 ECIES_HMAC_HASHF_BLOCK_SIZE = 128
-ECIES_CMAC_CIPHER = Aes256 # ECIES CMAC cipher
-ECIES_CMAC_CIPHER_KEY_LEN = 32 # ECIES CMAC cipher key length in octets
-
-# TODO: test ecc.field_e_to_int function using non-prime fields
-# TODO: make ECDSA implementation compatible with non-prime galois field
 
 # calculate key size of shared key in octets
 # ceil(bitsize / 8)
@@ -37,14 +36,13 @@ ECIES_CMAC_CIPHER_KEY_LEN = 32 # ECIES CMAC cipher key length in octets
 msg = "abcdabcdabcdabcd"
 
 curve = Secp521r1()
-weierstrass = Weierstrass(curve.p,curve.a,
-                          curve.b)
+weierstrass = Weierstrass(curve.p,curve.a,curve.b)
 alice = Curve(curve)
 bob = Curve(curve)
 
 # generate private keys of both Alice and Bob
-alice.get_privkey(5848086670634336295179241537947744107056560678941168314791178081878633088455617469991013034321652554105110886298371233598544051928031241656197349434021052)
-bob.get_privkey(65215690354676615037081482303758947066186667230878659726538709580154848544607330564152279281874441250878379865736772667630609470695976953483213929929888987)
+alice.get_prikey(5848086670634336295179241537947744107056560678941168314791178081878633088455617469991013034321652554105110886298371233598544051928031241656197349434021052)
+bob.get_prikey(65215690354676615037081482303758947066186667230878659726538709580154848544607330564152279281874441250878379865736772667630609470695976953483213929929888987)
 
 # generate public keys of both Alice and Bob
 alice.get_pubkey()
@@ -71,8 +69,6 @@ b_shared_sec = weierstrass.multiply(alice.pub_k,bob.pri_k)[0]
 hkdf_salt = b'p\xc3\xfc\xb7\xb4\xacY\xfeh.^o\xc5\xf4\x05\xc0w\x03\xb9}\x97C\xcf\xadI\x0c\x0f_\x8c\x82@\xe3' # generated using secrets.token_bytes(HASHLEN)
 hkdf_info = b"testing"
 
-# TODO: check if HKDF is correct by checking parameters and values outputted
-
 # use HKDF for choosing size of key
 a_shared_sec = hkdf(a_shared_sec, hkdf_salt, HKDF_HASHF, HASHLEN,
                     HASH_BLOCK_SIZE,hkdf_info,HKDF_SIZE,SHARED_KEY_SIZE)
@@ -91,17 +87,20 @@ signature = ecdsa.gen_signature(msg, alice.pri_k)
 # let Bob verify Alice's signature
 verify_sign = ecdsa.verify_signature(signature, ecdsa.m_hash,
                                      alice.pub_k)
+
+# Bob recovers Alice's signature
+recovered_a_pubk = ecdsa.recover_pubkey(ecdsa.m_hash, signature)
+
 # signature generated for verification is ecdsa.unauth_sign
 print("signature gen: ", signature)
 print("signature sign:", verify_sign)
+print("recovered Alice's public key: ", alice.pub_k==recovered_a_pubk)
 
 ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,Secp521r1)
 
 # Alice generates tag and sends it to Bob
-# tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
-#                      ECIES_HMAC_HASHF_BLOCK_SIZE)
-tag = ecies.gen_cmac(msg,a_shared_sec,ECIES_CMAC_CIPHER,
-                     ECIES_CMAC_CIPHER_KEY_LEN)
+tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
+                     ECIES_HMAC_HASHF_BLOCK_SIZE)
 
 # no IV in ECIES according to SEC 1, ver 1.9
 
@@ -112,10 +111,7 @@ ciphertext = ecies.encrypt(msg,a_shared_sec,None,True)
 plaintext = ecies.decrypt(ciphertext,b_shared_sec,None,True)
 
 # Bob verifies Alice's tag
-# verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
-verify_tag = ecies.verify_cmac(plaintext,b_shared_sec,tag,
-                               ECIES_CMAC_CIPHER,
-                               ECIES_CMAC_CIPHER_KEY_LEN)
+verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
 
 print("tag:\t", tag)
 print("ciphertext:\t", ciphertext)
