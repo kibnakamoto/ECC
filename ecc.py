@@ -192,7 +192,7 @@ class Ecdsa:
     
     # recover senders public key, only for verification
     # for weierstrass curves only
-    def recover_pubkey(self,m_hash, signature, QA):
+    def recover_pubkey(self,m_hash, signature):
         # verify that the signature point is generated correctly
         for i in range(2):
             if signature[i] == 0 or signature[i] > self.n:
@@ -210,23 +210,16 @@ class Ecdsa:
             if y**2%self.q == (pow(x,3,self.q) + self.a*x + self.b)%self.q:
                 if curves.montgomery_ladder((x,y),self.n,self.q,self.a) == (0,1):
                     break
-            x = (x + self.n)%self.n
+            
+            if self.h > 1:
+                x = (x + self.n)%self.q
         
         rinv = pow(x,-1,self.n)
         e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
         y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
         yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
         qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
-        
-        print("qa:\t", qa)
-            # u1 = ((-m_hash%self.n)*rinv) % self.n
-            # u2 = (y*rinv) % self.n
-            # g_u1 = curves.montgomery_ladder(self.G, u1, self.q,self.a)
-            # g_u2 = curves.montgomery_ladder((x,y), u2, self.q,self.a)
-            # qa = list(curves.point_add(g_u1[0],g_u1[1],g_u2[0],g_u2[1],
-            #                            self.q,self.a))
-        qa_correct = int(qa == QA)
-        return bool(qa_correct)
+        return qa
     
     # generate A's signature
     def gen_signature(self, message: str, pri_key: int,
