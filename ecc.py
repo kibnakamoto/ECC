@@ -1,29 +1,130 @@
-from math import ceil
+from math import ceil,sqrt
+from copy import deepcopy
+from collections import Counter
 from hashlib import sha256 # optional
+import secrets
 import curves
 from sha512 import *
 from aes import *
 
-# convert key input in ECIES as byte
+def poly_mul(a,b,p):
+    alength,blength = len(a),len(b)
+    lst = [0]*(alength+blength-1)
+    for i in range(alength):
+        for j in range(blength):
+            lst[i+j] = (a[i] * b[j] + lst[i+j])%p
+    return lst
+
+def poly_sq(a,p):
+    alength = len(a)
+    lst = [0]*(alength*2 - 1)
+    for i in range(alength):
+        for j in range(alength):
+            lst[i+j] = (a[i] * a[j] + lst[i+j])%p
+    return lst
+
+def poly_mod(a,f,p):
+    lenf = len(f)
+    if lenf < 2:
+        raise ValueError("f(x) smaller than 2")
+    
+    while len(a) >= lenf:
+        if a[-1] != 0:
+            for i in range(lenf,1,-1):
+                a[-i] = (a[-i]-a[-1]*f[-i]) % p
+        a = a[0:len(a)-1]
+    return a
+
+# calculatate the jacobi symbol
+def jacobi(n,p):
+    if p % 2 == 0 and p < 3:
+        raise ValueError("Jacobi parameter p isn't odd and above 3")
+    n%=p
+    res = 1
+    while n != 0:
+        while n%2 == 0:
+            n>>=1
+            p8 = p%8
+            if p8 == 3 or p8 == 5:
+                res=-res
+        p,n = deepcopy(n),deepcopy(p)
+        if n%4 == 3 and p%4 == 3:
+            res=-res
+        n%=p
+    if p == 1:
+        return res
+    else:
+        return 0
+
+# not necesarry
+def extended_euclidian(a,b):
+    pass # see https://cacr.uwaterloo.ca/hac/about/chap2.pdf algorithm 2.142
+
+# Repeated square-and-multiply algorithm for exponentiation in Fpm
+def rep_sq_mul_exp(gx, k, f, p):
+    if k == 0:
+        return list(1)
+    
+    if k > p:
+        raise ValueError("k is not in prime field p")
+    
+    Gx = deepcopy(gx)
+    if k%2 == 1:
+        sx = deepcopy(gx)
+    else:
+        sx = list(1)
+        
+    while k > 1:
+        k>>=1
+        Gx = poly_mod(poly_sq(Gx,p),f,p)
+        if k%2 == 1:
+            sx = poly_mod(poly_mul(Gx,sx,p),f,p)
+    return sx
+    
+# modular square root
+def modular_sqrt(a,p):
+    if 1 < a > p-1:
+        raise ValueError("input isn't in correct range ")
+    
+    # calculate the jacobi symbol to find if there is a modular sqare root of a in p
+    jacobi_symbol = jacobi(a,p)
+    if jacobi_symbol == -1:
+        raise ValueError("a does not have a sqrt modulo p")
+    
+    # This Implmenetation might be prone against timing side-channel attacks
+    # Try only returning at the end of function
+    
+    if p % 4 == 3:
+        return pow(a, (p+1)//4, p)
+    
+    if p % 8 == 5:
+        d = pow(a, (p-1)//4, p)
+        if d == 1:
+            return pow(a, (p+3)//8, p)
+        if d != p - 1:
+            raise ValueError("d != p-1 when p%8 == 5")
+        return (2*a*pow(4 * a, (p - 5)//8, p)) % p
+    
+    b = 2
+    b_symbol = jacobi(pow(b,2,p)-4*a,p)
+    while b_symbol != -1:
+        # make sure b is in range(1,p)
+        b+=1 # increment b until jacobi symbol is -1
+        b_symbol = jacobi(pow(b,2,p)-4*a,p) # quadratic non-residue modulo p
+        
+        if b >= p:
+            raise ValueError("no b can be calculated for chosen GF(p)")
+    f = (a,-b,1)
+    return rep_sq_mul_exp([0,1],(p+1)>>1,f,p)[0]
 
 # same p,a,b parameters have to be used by both parties for 
 # creating a shared key, the shared key will be used for symmetric encryption and elliptic cryptography digital signatures
 def gen_shared_key(pri_k,pub_k, p, a):
     return curves.montgomery_ladder(pub_k, pri_k, p, a)[0]
 
-# field element to integer, used for non-prime fields
-# m = None is when prime field, not tested. Test with sect571k1
-def field_e_to_int(a, size, m=None):
-    if m == None:
-        return a
-    x = 0
-    bits = bin(a)[2:].zfill(m)
-    for i in range(m):
-        x = (x + int(bits[i])*2**i) % size
-    return x
-
 # Hash-based Message Authentication Code
-def hmac(key: bytearray, msg: bytearray,block_s: int = 128, machashf=Sha512,             form="hexdigest"):
+def hmac(key: bytearray, msg: bytearray,block_s: int = 128, 
+         machashf=Sha512, form="hexdigest"):
     if len(key) == block_s:
         new_key = bytearray(key)
     elif len(key) > block_s:
@@ -50,65 +151,6 @@ def hmac(key: bytearray, msg: bytearray,block_s: int = 128, machashf=Sha512,    
     if form[0] == "h": # if hexdigest
         return hashobj.hexdigest()
     return hashobj.digest()
-
-# Cipher-based Message Authentication Code for AES
-""" WARNING: CMAC DOESN'T WORK """
-# TODO: debug cmac
-def cmac(key: bytearray, msg: bytearray, cipher=Aes256, keylen=32):
-    if isinstance(msg,str):
-        msg = msg.encode()
-    # seperate msg into blocks
-    if len(msg) == 0:
-        substr = [b""]
-    elif len(msg) != 16:
-        substr =  [msg[i:i+16] for i in range(0, len(msg), 16)]
-    else:
-        substr = [msg]
-    RB = 0x87
-    BSIZE = 16
-    length = len(msg)
-    msb = lambda n : int(hex(n)[2:].ljust(keylen*2,'0'),16) >> keylen*8-1    
-    # ciphertext of ZERO cannot be calculated since ord('0') = 48
-    # this problem can be solved by subtracting 48 from each decimal
-    # zero which gives 0 in decimal. String is causing this problem
-    ZERO48 = "0000000000000000".encode('utf-8')
-    ZERO = ""
-    for i in range(16):
-        ZERO += chr(ZERO48[i]-48)
-    cipherint = int(cipher.encrypt(ZERO,key),16)
-    k1 = bytearray(((cipherint << 1) & 
-                    0xffffffffffffffffffffffffffffffff).to_bytes(16,
-                                                                 'big'))
-    if msb(cipherint) == 1: # TODO: replace cipherint with ciph[0]
-        k1[15] ^= RB
-    k1_int = int.from_bytes(k1,'big')
-    k2 = bytearray(((k1_int << 1) &
-                    0xffffffffffffffffffffffffffffffff).to_bytes(16,
-                                                                 'big'))
-    if msb(k1[0]) == 1:
-        k2[15] ^= RB
-    n = ceil(length/BSIZE)
-    if n == 0:
-        n = 1
-        flag = False
-    else:
-        if length%BSIZE == 0:
-            flag = True
-        else:
-            flag = False
-    if flag:
-        msg_last = int.from_bytes(substr[n-1],'big') ^ k1_int
-    else:
-        m_n = (substr[n-1] + b'1') + b'0'*(16-len(substr[n-1])*8-1)
-        k2_int = int.from_bytes(k2,'big')
-        msg_last = int.from_bytes(m_n,'big') ^ k2_int
-    x = 0
-    for i in range(0,n-1):
-        y = (x ^ int.from_bytes(substr[i],'big')).to_bytes(16,'big')
-        x = int(cipher.encrypt(y.decode('charmap'),key),16)
-    y = (msg_last ^ x).to_bytes(16,'big')
-    return cipher.encrypt(y.decode('charmap'),key)
-""" WARNING: ^ CMAC DOESN'T WORK, HAS A BUG ^ """
 
 # Hash-based Key Deravation Function
 def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
@@ -139,13 +181,52 @@ def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
 class Ecdsa:
     def __init__(self, curve=curves.Secp521r1):
         if hasattr(curve,"p"): # if prime curve
-            self.p = curve.p
+            self.q = curve.p
         else:
-            self.m = curve.m
-            self.size = curve.size # 2**m
+            return NotImplemented # binary curves
         self.G = curve.G
         self.n = curve.n
         self.a = curve.a
+        self.b = curve.b
+        self.h = curve.h
+    
+    # recover senders public key, only for verification
+    # for weierstrass curves only
+    def recover_pubkey(self,m_hash, signature, QA):
+        # verify that the signature point is generated correctly
+        for i in range(2):
+            if signature[i] == 0 or signature[i] > self.n:
+                raise ValueError("signature is zero or bigger than n")
+        
+        x = deepcopy(signature[0])
+        
+        # while x is not equal to Public key of sender
+        for i in range(self.h):
+            # x,y is on the curve, modular_sqrt is correct
+            y = modular_sqrt((pow(x,3,self.q) + self.a*x +
+                              self.b+self.q)%self.q,self.q)
+            if y%2 == 0:
+                y = self.q-y
+            if y**2%self.q == (pow(x,3,self.q) + self.a*x + self.b)%self.q:
+                if curves.montgomery_ladder((x,y),self.n,self.q,self.a) == (0,1):
+                    break
+            x = (x + self.n)%self.n
+        
+        rinv = pow(x,-1,self.n)
+        e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
+        y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
+        yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
+        qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
+        
+        print("qa:\t", qa)
+            # u1 = ((-m_hash%self.n)*rinv) % self.n
+            # u2 = (y*rinv) % self.n
+            # g_u1 = curves.montgomery_ladder(self.G, u1, self.q,self.a)
+            # g_u2 = curves.montgomery_ladder((x,y), u2, self.q,self.a)
+            # qa = list(curves.point_add(g_u1[0],g_u1[1],g_u2[0],g_u2[1],
+            #                            self.q,self.a))
+        qa_correct = int(qa == QA)
+        return bool(qa_correct)
     
     # generate A's signature
     def gen_signature(self, message: str, pri_key: int,
@@ -153,10 +234,10 @@ class Ecdsa:
         if key == 0:
             raise Exception("key x is zero")
         
-        m_hash = int(str(hashf(message).hexdigest()),16)
-        self.m_hash = m_hash
+        m_hash = int(str(hashf(message).hexdigest()),16) % self.n
+        self.m_hash = deepcopy(m_hash)
         y = 0
-
+        
         # make sure y is not zero
         while y == 0:
             if key == None:
@@ -169,10 +250,10 @@ class Ecdsa:
                     knn = kn+self.n
                     if len(bin(kn)[2:]) == len(bin(self.n)[2:]):
                         mul = curves.montgomery_ladder(self.G,knn,
-                                                       self.p,self.a)
+                                                       self.q,self.a)
                     else:
                         mul = curves.montgomery_ladder(self.G,kn,
-                                                       self.p,self.a)
+                                                       self.q,self.a)
                     self.key = mul[0] % self.n
             else:
                 # use key provided as function parameter
@@ -201,14 +282,14 @@ class Ecdsa:
                 raise ValueError("signature is zero or bigger than n")
         
         inv_y = pow(signature[1],-1,self.n)
-        u1 = (m_hash*inv_y) % self.n
+        u1 = ((m_hash%self.n)*inv_y) % self.n
         u2 = (signature[0]*inv_y) % self.n
-        g_u1 = curves.montgomery_ladder(self.G,u1,self.p,self.a)
-        a_pub_key_u2 = curves.montgomery_ladder(a_pub_key,u2,self.p,self.a)
+        g_u1 = curves.montgomery_ladder(self.G,u1,self.q,self.a)
+        a_pub_key_u2 = curves.montgomery_ladder(a_pub_key,u2,self.q,self.a)
         self.unauth_sign = curves.point_add(g_u1[0],g_u1[1],
                                             a_pub_key_u2[0],
                                             a_pub_key_u2[1],
-                                            self.p,self.a)
+                                            self.q,self.a)
         
         if self.unauth_sign == (0,1):
             raise ValueError("generated verification signature is point at infinity")
@@ -253,44 +334,47 @@ class Ecies:
         # check tag
         self.htag_verified = self.htag == self.unv_htag
         if not self.htag_verified:
-            raise ValueError("wrong tag, message is tampered")
+            return False
+            # raise ValueError("wrong tag, message is tampered")
         return True
     
-    def gen_cmac(self,msg,key,cipher=Aes256,aeskeylen=32):
-        # if key is an integer, convert to byte array
-        if isinstance(key,int):
-            key = hex(key)[2:].zfill(self.keylen*2)
-            key = bytes.fromhex(key)
+    # TODO: define cmac
+    # def gen_cmac(self,msg,key,cipher=Aes256,aeskeylen=32):
+    #     # if key is an integer, convert to byte array
+    #     if isinstance(key,int):
+    #         key = hex(key)[2:].zfill(self.keylen*2)
+    #         key = bytes.fromhex(key)
         
-        self.ctag = cmac(key,msg.encode(),cipher,aeskeylen)
-        return self.ctag
+    #     self.ctag = cmac(key,msg.encode(),cipher,aeskeylen)
+    #     return self.ctag
     
     
-    def verify_cmac(self,msg,key,tag=None,cipher=Aes256,aeskeylen=32):
-        if tag == None:
-            if self.ctag == None:
-                raise Exception("no tag provided")
-        else:
-            self.ctag = tag
+    # def verify_cmac(self,msg,key,tag=None,cipher=Aes256,aeskeylen=32):
+    #     if tag == None:
+    #         if self.ctag == None:
+    #             raise Exception("no tag provided")
+    #     else:
+    #         self.ctag = tag
         
-        # if key is an integer, convert to byte array
-        if isinstance(key,int):
-            key = hex(key)[2:].zfill(self.keylen*2)
-            key = bytes.fromhex(key)
-        self.unv_ctag = cmac(key,msg.encode(),cipher,aeskeylen)
+    #     # if key is an integer, convert to byte array
+    #     if isinstance(key,int):
+    #         key = hex(key)[2:].zfill(self.keylen*2)
+    #         key = bytes.fromhex(key)
+    #     self.unv_ctag = cmac(key,msg.encode(),cipher,aeskeylen)
         
-        # check tag
-        self.ctag_verified = self.ctag == self.unv_ctag
-        if not self.ctag_verified:
-            raise ValueError("wrong tag, message is tampered")
-        return True
+    #     # check tag
+    #     self.ctag_verified = self.ctag == self.unv_ctag
+    #     if not self.ctag_verified:
+            # return False
+            # # raise ValueError("wrong tag, message is tampered")
+    #     return True
     
     # msg is the message you want to encrypt
     # key is the established shared secret using the KDF as a bytearray
     # tag, verify that tag equals True 
     # iv should stay None in ECIES
     # add delimeter if msg length isn't 16 octets, None for none
-    def encrypt(self,msg,key, iv=None, delimeter=None):
+    def encrypt(self, msg, key, iv=None, delimeter=None):
         # supported Symmetric Encryption Schemes
         # AES–128 in CBC mode
         # AES–192 in CBC mode
@@ -324,20 +408,5 @@ class Ecies:
         # after decrypting, verify MAC so that you know message isn't tampered
         return self.plain
 
-
-# Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
-# Signature Algorithm - 256-bit Advanced Encryption Standard - 
-# 512-bit Secure Hashing Algorithm
-class ecdhe_ecdsa_aes256_sha512:
-    pass
-
 # calculate keylen in ECIES using:
 # ceil(bitkeysize/8)
-
-key = 0x603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4
-key = hex(key)[2:].zfill(32*2)
-key = bytes.fromhex(key)
-aes256 = Aes256(None)
-test = cmac(key,"",aes256,32)
-print("\ntest:", test)
-assert test == "028962f61b7bf89efc6b551f4667d983"
