@@ -1,7 +1,7 @@
 import secrets
 import math
 
-# implementation of public key generation of weierstrass curves
+# implementation of public key generation of weierstrass curves over GF(p)
 
 def gen_key(n):
     key = 0
@@ -48,7 +48,7 @@ def montgomery_ladder(pointG,prikey, p, a):
 
 class Weierstrass:
     # x and y coordinates of points should satisfy the following equation:
-    # y2 = x3 + Ax + B
+    # y2 = x3 + Ax + B (mod p)
     """ default class initializer """
     def __init__(self, p: int, a: int, b: int):
         self.p = p
@@ -56,7 +56,6 @@ class Weierstrass:
         self.b = b
     
     def multiply(self,pointG: tuple, prikey: int):
-        weierstrass = Weierstrass(self.p,self.a,self.b)
         self.pointG = pointG
         self.prikey = prikey
         
@@ -69,20 +68,7 @@ class Weierstrass:
             return montgomery_ladder(self.pointG, self.prikey, self.p, 
                                      self.a)
         else:
-            raise Exception("parameters do not satisfy equation")
-
-# Highest level security, the only non-prime field implemented here
-class Sect571k1:
-    def __init__(self):
-        self.m = 571
-        self.a = 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-        self.b = 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001
-        self.G = (0x04026EB7A859923FBC82189631F8103FE4AC9CA2970012D5D46024804801841CA44370958493B205E647DA304DB4CEB08CBBD1BA39494776FB988B47174DCA88C7E2945283A01C8972,
-                  0x0349DC807F4FBF374F4AEADE3BCA95314DD58CEC9F307A54FFC61EFC006D8A2C9D4979C0AC44AEA74FBEBBB9F772AEDCB620B01A7BA7AF1B320430C8591984F601CD4C143EF1C7A3)
-
-        self.n = 0x020000000000000000000000000000000000000000000000000000000000000000000000131850E1F19A63E4B391A8DB917F4138B630D84BE5D639381E91DEB45CFE778F637C1001
-        self.h = 0x04
-        
+            raise Exception("parameters do not satisfy equation")        
 
 class Secp521r1:
     def __init__(self):
@@ -116,18 +102,23 @@ class Secp256k1:
         self.b = 0x0000000000000000000000000000000000000000000000000000000000000007
         self.G = (0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798,
                   0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8)
-
+        self.h = 0x01
+        
 class Curve:
     def __init__(self,curve=Secp521r1):
         self.curve = curve
 
-    def get_privkey(self, pri_k=0):
+    def get_prikey(self, pri_k=0):
         # numbers from 1 to n-1. But 1 is not given as the starting range
         if(pri_k == 0):
             self.pri_k = gen_key(self.curve.n)
         else:
             self.pri_k = pri_k
     
-    def get_pubkey(self):
-        weierstrass = Weierstrass(self.curve.p,self.curve.a,self.curve.b)
+    def get_pubkey(self, pri_k=None):
+        if not pri_k == None:
+            self.pri_k = pri_k
+        
+        weierstrass = Weierstrass(self.curve.p,self.curve.a,
+                                  self.curve.b)
         self.pub_k = weierstrass.multiply(self.curve.G, self.pri_k)
