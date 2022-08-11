@@ -190,9 +190,9 @@ class Ecdsa:
         self.b = curve.b
         self.h = curve.h
     
-    # recover senders public key, only for verification
+    # Potentially recover senders public key. Doesn't always work
     # for weierstrass curves only
-    def recover_pubkey(self,m_hash, signature):
+    def recover_pubkey(self, m_hash, signature):
         # verify that the signature point is generated correctly
         for i in range(2):
             if signature[i] == 0 or signature[i] > self.n:
@@ -213,12 +213,16 @@ class Ecdsa:
             
             if self.h > 1:
                 x = (x + self.n)%self.q
-        
-        rinv = pow(x,-1,self.n)
-        e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
-        y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
-        yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
-        qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
+
+        for i in range(2):
+            rinv = pow(x,-1,self.n)
+            e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
+            y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
+            yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
+            qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
+            if self.verify_signature(signature,m_hash,qa):
+                break
+            y = -y%self.q
         return qa
     
     # generate A's signature
@@ -286,10 +290,7 @@ class Ecdsa:
         
         if self.unauth_sign == (0,1):
             raise ValueError("generated verification signature is point at infinity")
-        
-        if self.unauth_sign[0] == signature[0]:
-            return True
-        return False
+        return self.unauth_sign[0] == signature[0]
 
 class Ecies:
     def __init__(self,keylen=66, encrypt_alg=Aes256, curve=curves.Secp521r1):
