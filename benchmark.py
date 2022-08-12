@@ -2,9 +2,11 @@
 from hashlib import *
 from time import time
 from pprint import pprint
+from decimal import Decimal
 import secrets
 import tracemalloc
-from decimal import Decimal
+import string
+
 from curves import *
 from ecc import *
 from aes import *
@@ -148,6 +150,7 @@ class Benchmark_Hkdf():
         # Test correctness
         ab_sc_correct = a_shared_secrets == b_shared_secrets
         print("-"*len(f"curve: {type(curve)}"))
+        print("             HKDF")
         print(f"curve: {type(curve)}")
         if ab_sc_correct:
             print("-------------SUCCESS-------------")
@@ -226,7 +229,10 @@ class Benchmark_Ecies:
                 print("wrong plaintext at index: ", i)
                 wrong_plaintext_count+=1
         
-        print("\n---------------- ECIES TESTS ----------------")
+        self.data = data
+        self.plaintexts = plaintexts
+        
+        print("\n\n---------------- ECIES TESTS ----------------\n")
         print(f"curve: {type(curve)}")
         print(f"\ndata length = {length}\ncurve: {type(curve)}")
         print(f"{length} tags calculation time: {tags_time}")
@@ -244,23 +250,31 @@ class Benchmark_Ecies:
         # if asked for specific data or have wrong data
         if wrong_tag_count != 0 or wrong_plaintext_count != 0 or inp == 'y':
             for i in range(length):
-                pprint('i:\t\t {}'.format(i))
+                print("\n\t{")
+                pprint('i: {}'.format(i))
                 pprint("tag: {}".format(tags[i]))
                 pprint("secure: {}".format(verify_tags[i]))
                 pprint("ct: {}".format(ciphertexts[i]))
                 pprint("pt: {}".format(plaintexts[i]))
+                pprint("data before encryption: {}".format(data[i]))
+                print("\t}\n")
     
-    def gen_rand_strings(self,length=1000, maxsize=100):
+    def gen_rand_strings(self, length=1000, maxsize=100):
         data = []
         for i in range(length):
-            n = secrets.randbelow(maxsize)
-            data.append(secrets.token_bytes(n).decode('charmap'))
+            alp = string.ascii_letters + string.digits
+            while True:
+                n = secrets.randbelow(maxsize)
+                password = ''.join(secrets.choice(alp) for i in range(n))
+                if (any(i.islower() for i in password) and any(i.isupper() 
+                for i in password) and sum(i.isdigit() for i in password) >= 0):
+                    break
+            data.append(password)
         return tuple(data)
 
 class Benchmark_Ecdsa:
     def __init__(self,a_pri_keys,a_pub_keys,data,plaintexts,
-                 curve=Secp521r1,hashf=Sha512,length=1000,
-                 keys = None):
+                 curve=Secp521r1,hashf=Sha512,length=1000,keys = None):
         ecdsa = Ecdsa(curve)
         
         # generate Alice's signatures
@@ -284,7 +298,7 @@ class Benchmark_Ecdsa:
         hashgentime = time()
         hashes = []
         for i in range(length):
-            hashes.append(int(str(hashf(plaintexts[i])),16))
+            hashes.append(int(str(hashf(plaintexts[i]).hexdigest()),16))
         hashgentime = time()-hashgentime
         
         # Bob verifies Alice's signatures
@@ -306,16 +320,16 @@ class Benchmark_Ecdsa:
                 continue
             else:
                 if temp == a_pub_keys[i]:
-                    recovered_count +=1
+                    recovered_count += 1
         recover_time = time()-recover_time
 
-         verified = self.signatures == self.unauth_signs
-        false_count = 0
+        verified = not (False in self.unauth_signs)
+        corr_count = 0
         if not verified:
             for i in range(length):
-                false_count += int(self.signatures[i] == self.unauth_signs)
-        var_len = length-false_count
-        print("----------- ECDSA TEST -----------")
+                corr_count += int(self.unauth_signs[i])
+        
+        print("\n\n----------- ECDSA TEST -----------\n")
         print(f"curve: {type(curve)}")
         print(f"{length} signatures generation time: {sign_gen_time}")
         print("signature generation time: ", Decimal(Decimal(sign_gen_time) /
@@ -331,17 +345,16 @@ class Benchmark_Ecdsa:
         print(f"public key recovery time: {Decimal(Decimal(recover_time)/length)}")
         print("  ---------- Accuracy ----------")
         print(f"signatures verified: {verified}")
-        if not verified:
-            print("------------------- FAILURE -------------------")
-            print(f"verified {var_len} signatures out of {length}")
+        if corr_count != length and not verified:
+            print("\n------------------- FAILURE -------------------")
+            print(f"verified {corr_count} signatures out of {length}")
         else:
-            print("--------- SUCCESS ---------")
+            print("\n--------- SUCCESS ---------")
             print("all signatures are verified")
         print(f"{recovered_count} public keys recovered out of {length}")
-        print("--------- PUBLIC KEY RECOVERY IS NOT ACCURATE ---------")
+        print("--------- PUBLIC KEY RECOVERY IS NOT ACCURATE ---------\n")
 
-# time, memory, and accuracy tests. Random tests.
-# How code reacts to wrong data doesn't exist in benchmark tests.
+# time, memory, and accuracy tests
 curve = Secp521r1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
 data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
@@ -352,7 +365,10 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
                               data_maxsize=100,curve=curve,keylen=66,
                               symm_alg=Aes256,symmkey_sise=32,
                               hmac_hashf=Sha512,hashf_block_size=128,inp='n')
-ecdsa_test = None
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys = None)
 
 curve = Secp256k1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
@@ -364,7 +380,10 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
                               data_maxsize=100,curve=curve,keylen=32,
                               symm_alg=Aes256,symmkey_sise=32,
                               hmac_hashf=sha256,hashf_block_size=64,inp='n')
-ecdsa_test = None
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys = None)
 
 curve = Secp256r1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
@@ -376,4 +395,7 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
                               data_maxsize=100,curve=curve,keylen=32,
                               symm_alg=Aes256,symmkey_sise=32,
                               hmac_hashf=sha256,hashf_block_size=64,inp='n')
-ecdsa_test = None
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys = None)
