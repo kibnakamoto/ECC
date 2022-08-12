@@ -20,6 +20,8 @@ Only Weiestress curve is used
 
 Only prime field sizes are supported
 
-Curves: secp521r1, secp256k1, secp256r1
+Curves: secp521r1, secp256k1 (Bitcoin Curve), secp256r1
 
 Not For Professional use
+
+Note: Public Key Recovery doesn't always work
