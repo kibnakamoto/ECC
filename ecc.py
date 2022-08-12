@@ -210,21 +210,15 @@ class Ecdsa:
             if y**2%self.q == (pow(x,3,self.q) + self.a*x + self.b)%self.q:
                 if curves.montgomery_ladder((x,y),self.n,self.q,self.a) == (0,1):
                     break
-            
-            if self.h > 1:
-                x = (x + self.n)%self.q
+            x = (x + self.n)%self.n
 
-        for i in range(2):
-            rinv = pow(x,-1,self.n)
-            e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
-            y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
-            yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
-            qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
-            if self.verify_signature(signature,m_hash,qa):
-                break
-            y = -y%self.q
+        rinv = pow(x,-1,self.n)
+        e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
+        y_r = curves.montgomery_ladder((x,y), signature[1], self.q, self.a)
+        yreg = list(curves.point_add(y_r[0],y_r[1],e_g[0],e_g[1],self.q,self.a))
+        qa = curves.montgomery_ladder(yreg, rinv, self.q, self.a)
         return qa
-    
+
     # generate A's signature
     def gen_signature(self, message: str, pri_key: int,
                       key: int = None,hashf=Sha512):
@@ -392,11 +386,8 @@ class Ecies:
             key = bytes.fromhex(key)
         
         # decrypt ciphertext
-        try:
-            self.iv = self.enc.iv
-        except NameError:
-            self.enc = self.encrypt_alg(iv)
-            self.iv = self.enc.iv
+        self.enc = self.encrypt_alg(iv)
+        self.iv = self.enc.iv
         self.plain = self.enc.decrypt(cipher,key,delimeter)
         
         # after decrypting, verify MAC so that you know message isn't tampered
