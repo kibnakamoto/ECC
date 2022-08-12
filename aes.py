@@ -385,8 +385,7 @@ class Aes256:
             self.key = key
         
         # remove delimeter if added during encryption
-        if delm == None:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes192:
@@ -421,8 +420,7 @@ class Aes192:
             self.key = key
         
         # remove delimeter if added during encryption
-        if delm == None:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_dec(inp,self.key,self.delm)
 
 class Aes128:
@@ -457,6 +455,5 @@ class Aes128:
             self.key = key
         
         # remove delimeter if added during encryption
-        if delm == None:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_dec(inp,self.key,self.delm)
