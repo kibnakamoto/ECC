@@ -5,7 +5,7 @@ from sha512 import *
 from aes import *
 from curves import *
 from ecc import *
-# import benchmark
+import benchmark
 
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
 # Signature Algorithm - 256-bit Advanced Encryption Standard - 
@@ -84,17 +84,8 @@ ecdsa = Ecdsa(curve)
 # generate Alice's signature with ECDSA
 signature = ecdsa.gen_signature(msg, alice.pri_k)
 
-# let Bob verify Alice's signature
-verify_sign = ecdsa.verify_signature(signature, ecdsa.m_hash,
-                                     alice.pub_k)
-
-# Bob recovers Alice's signature
-recovered_a_pubk = ecdsa.recover_pubkey(ecdsa.m_hash, signature)
-
 # signature generated for verification is ecdsa.unauth_sign
 print("signature gen: ", signature)
-print("signature sign:", verify_sign)
-print("recovered Alice's public key: ", alice.pub_k==recovered_a_pubk)
 
 ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,Secp521r1)
 
@@ -113,7 +104,17 @@ plaintext = ecies.decrypt(ciphertext,b_shared_sec,None,True)
 # Bob verifies Alice's tag
 verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
 
+# let Bob verify Alice's signature
+m_hash = int(str(Sha512(plaintext).hexdigest()),16) % curve.n
+verify_sign = ecdsa.verify_signature(signature, m_hash,
+                                     alice.pub_k)
+
+# Bob Potentionally recovers Alice's signature, doesn't always work
+recovered_a_pubk = ecdsa.recover_pubkey(ecdsa.m_hash, signature)
+
 print("tag:\t", tag)
 print("ciphertext:\t", ciphertext)
 print("plaintext:\t", plaintext)
 print("verify_tag:\t", verify_tag)
+print("signature sign:", verify_sign)
+print("recovered Alice's public key: ", alice.pub_k==recovered_a_pubk)
