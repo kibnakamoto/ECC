@@ -24,4 +24,4 @@ Curves: secp521r1, secp256k1 (Bitcoin Curve), secp256r1
 
 Not For Professional use
 
-Note: Public Key Recovery doesn't always work
+Note: Public Key Recovery doesn't always work, further tests will be done
