@@ -16,6 +16,7 @@ import benchmark
 # efficient for key sizes used by AES but in terms of security
 # (not counting side channel attacks), Sha512 implmenetation defined
 # on this project would be more secure
+# MC: Dad's mark
 
 """ Constants for encryption """
 # Current constants are for aes256-sha256 for HKDF, sha512 for HMAC, aes256 for CMAC
