@@ -7,6 +7,9 @@ from curves import *
 from ecc import *
 import benchmark
 
+# TODO: MAJOR BUG: Benchmark tests show that in the AES algorithm, some of the end of data 
+# delimeter (1) isn't deleted properly. Define function for delimter
+
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
 # Signature Algorithm - 256-bit Advanced Encryption Standard - 
 # 512-bit Secure Hashing Algorithm (ecdhe_ecdsa_aes256_sha512)
