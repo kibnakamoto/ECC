@@ -356,8 +356,10 @@ class Aes:
                 if tmp_val[1] == '0'*(len(tmp_val[1])):
                     final_val = tmp_val[0]
             except IndexError:
-                final_val = tmp[val]
-            
+                final_val = tmp_val[0]
+           
+            if len(final_val)%16 == 0 and final_val[15] == '1':
+                final_val[15] = ''
         return final_val
 
 class Aes256:
