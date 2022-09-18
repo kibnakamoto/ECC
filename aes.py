@@ -349,8 +349,15 @@ class Aes:
         
         # remove final delimeter '1'
         if rm_del != None:
-            final_val = final_val.rsplit('1', 1)[0]
-                
+            tmp_val = final_val.rsplit('1', 1)
+
+            # if data length is a multiple of 16, there is no delimeter so don't remove anything
+            try:
+                if tmp_val[1] == '0'*(len(tmp_val[1])):
+                    final_val = tmp_val[0]
+            except IndexError:
+                final_val = tmp[val]
+            
         return final_val
 
 class Aes256:
