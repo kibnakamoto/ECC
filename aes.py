@@ -359,7 +359,7 @@ class Aes:
                 final_val = tmp_val[0]
            
             if len(final_val)%16 == 0 and final_val[15] == '1':
-                final_val[15] = ''
+                final_val[15] = deepcopy(final_val[:14])
         return final_val
 
 class Aes256:

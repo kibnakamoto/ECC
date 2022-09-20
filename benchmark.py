@@ -298,7 +298,7 @@ class Benchmark_Ecdsa:
         hashgentime = time()
         hashes = []
         for i in range(length):
-            hashes.append(int(str(hashf(plaintexts[i]).hexdigest()),16))
+            hashes.append(int(str(hashf(plaintexts[i].encode()).hexdigest()),16))
         hashgentime = time()-hashgentime
         
         # Bob verifies Alice's signatures
@@ -355,6 +355,9 @@ class Benchmark_Ecdsa:
         print("--------- PUBLIC KEY RECOVERY IS NOT ACCURATE ---------\n")
 
 # time, memory, and accuracy tests
+
+# Prime SEC Curves
+
 curve = Secp521r1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
 data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
@@ -368,7 +371,7 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
 ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
                              data=ecies_test.data,plaintexts=
                              ecies_test.plaintexts,curve=curve,
-                             hashf=Sha512,length=10,keys = None)
+                             hashf=Sha512,length=10,keys=None)
 
 curve = Secp256k1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
@@ -383,7 +386,7 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
 ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
                              data=ecies_test.data,plaintexts=
                              ecies_test.plaintexts,curve=curve,
-                             hashf=Sha512,length=10,keys = None)
+                             hashf=Sha512,length=10,keys=None)
 
 curve = Secp256r1()
 data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
@@ -398,4 +401,83 @@ ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
 ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
                              data=ecies_test.data,plaintexts=
                              ecies_test.plaintexts,curve=curve,
-                             hashf=Sha512,length=10,keys = None)
+                             hashf=Sha512,length=10,keys=None)
+# Prime Brainpool Curves
+
+curve = Brainpoolp512r1()
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=Sha512,curve=curve,
+                           hashlen=64,hash_block_size=128,
+                           size=32,sk_size=64).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=64,
+                              symm_alg=Aes256,symmkey_sise=32,
+                              hmac_hashf=Sha512,hashf_block_size=128,inp='n')
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys=None)
+
+curve = Brainpoolp384r1()
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=Sha512,curve=curve,
+                           hashlen=64,hash_block_size=128,
+                           size=32,sk_size=48).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=48,
+                              symm_alg=Aes256,symmkey_sise=32,
+                               hmac_hashf=Sha512,hashf_block_size=128,inp='n')
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys=None)
+
+
+curve = Brainpoolp320r1()
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=Sha512,curve=curve,
+                           hashlen=64,hash_block_size=128,
+                           size=32,sk_size=40).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=40,
+                              symm_alg=Aes256,symmkey_sise=32,
+                               hmac_hashf=Sha512,hashf_block_size=128,inp='n')
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys=None)
+ 
+curve = Brainpoolp256r1()
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=sha256,curve=curve,
+                           hashlen=32,hash_block_size=64,
+                           size=32,sk_size=32).hkdf_keys
+ecies_test =  Benchmark_Ecies(hkdf_test,data=None,length=10,
+                              data_maxsize=100,curve=curve,keylen=32,
+                              symm_alg=Aes256,symmkey_sise=32,
+                               hmac_hashf=sha256,hashf_block_size=64,inp='n')
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=Sha512,length=10,keys=None)
+
+
+curve = Brainpoolp224r1()
+data = Benchmark_Time_Curves(curve=curve,prikey_count=10).pair
+data1 = Benchmark_Memory_Curves(curve=curve,prikey_count=10).pair
+hkdf_test = Benchmark_Hkdf(data,data1,hashf=sha256,curve=curve,
+                           hashlen=32,hash_block_size=64,
+                           size=32,sk_size=28).hkdf_keys
+ecies_test = Benchmark_Ecies(hkdf_test,data=None,length=10,
+                             data_maxsize=100,curve=curve,keylen=28,
+                             symm_alg=Aes256,symmkey_sise=32,
+                             hmac_hashf=sha256,hashf_block_size=64,inp='n')
+ecdsa_test = Benchmark_Ecdsa(a_pri_keys=data[0],a_pub_keys=data[1],
+                             data=ecies_test.data,plaintexts=
+                             ecies_test.plaintexts,curve=curve,
+                             hashf=sha512,length=10,keys=None)
+

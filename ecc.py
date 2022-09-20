@@ -221,11 +221,11 @@ class Ecdsa:
 
     # generate A's signature
     def gen_signature(self, message: str, pri_key: int,
-                      key: int = None,hashf=Sha512):
+                      key: int=None,hashf=Sha512):
         if key == 0:
             raise Exception("key x is zero")
         
-        m_hash = int(str(hashf(message).hexdigest()),16) % self.n
+        m_hash = int(str(hashf(message.encode()).hexdigest()),16) % self.n
         self.m_hash = deepcopy(m_hash)
         y = 0
         

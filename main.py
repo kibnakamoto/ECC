@@ -5,7 +5,7 @@ from sha512 import *
 from aes import *
 from curves import *
 from ecc import *
-import benchmark
+# import benchmark
 
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
 # Signature Algorithm - 256-bit Advanced Encryption Standard - 
@@ -25,6 +25,7 @@ HKDF_SIZE = 32 # length of HKDF output in octects
 HKDF_HASHF = sha256 # hashing algorithm used in HKDF
 SHARED_KEY_SIZE = 66 # length of shared key in octets
 MSG_SALT = "" # Message Salt
+CURVE = Secp521r1 # Elliptic Curve
 ECIES_SYMM_ENC_ALG = Aes256 # ECIES Symmetric Encryption Algorithm
 ECIES_HMAC_HASHF = Sha512 # ECIES HMAC Hash Function
 ECIES_HMAC_HASHF_BLOCK_SIZE = 128
@@ -87,7 +88,7 @@ signature = ecdsa.gen_signature(msg, alice.pri_k)
 # signature generated for verification is ecdsa.unauth_sign
 print("signature gen: ", signature)
 
-ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,Secp521r1)
+ecies = Ecies(SHARED_KEY_SIZE,ECIES_SYMM_ENC_ALG,CURVE)
 
 # Alice generates tag and sends it to Bob
 tag = ecies.gen_hmac(msg,a_shared_sec,ECIES_HMAC_HASHF,
@@ -105,13 +106,14 @@ plaintext = ecies.decrypt(ciphertext,b_shared_sec,None,True)
 verify_tag = ecies.verify_hmac(plaintext,b_shared_sec,)
 
 # let Bob verify Alice's signature
-m_hash = int(str(Sha512(plaintext).hexdigest()),16) % curve.n
+m_hash = int(str(Sha512(plaintext.encode()).hexdigest()),16) % curve.n
 verify_sign = ecdsa.verify_signature(signature, m_hash,
                                      alice.pub_k)
 
 # Bob Potentionally recovers Alice's signature, doesn't always work
 recovered_a_pubk = ecdsa.recover_pubkey(ecdsa.m_hash, signature)
 
+print()
 print("tag:\t", tag)
 print("ciphertext:\t", ciphertext)
 print("plaintext:\t", plaintext)
