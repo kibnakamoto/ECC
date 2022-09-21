@@ -57,8 +57,8 @@ def jacobi(n,p):
         return 0
 
 # not necesarry
-def extended_euclidian(a,b):
-    pass # see https://cacr.uwaterloo.ca/hac/about/chap2.pdf algorithm 2.142
+# def extended_euclidian(a,b):
+#     pass # see https://cacr.uwaterloo.ca/hac/about/chap2.pdf algorithm 2.142
 
 # Repeated square-and-multiply algorithm for exponentiation in Fpm
 def rep_sq_mul_exp(gx, k, f, p):
@@ -251,8 +251,8 @@ class Ecdsa:
                 self.key = key
             
             # calculate modular inverse of key
-            inv_key = pow(new_key,-1,self.n)
-            
+            inv_key = pow(new_key, -1, self.n)
+
             # calculate y coordinate of signature
             y = inv_key*(m_hash + pri_key * self.key) % self.n
                         
@@ -260,7 +260,6 @@ class Ecdsa:
             # avoid endless loop
             if key != None and y == 0:
                 raise ValueError("inputted key returns y = 0")
-            
             
             self.signature = (self.key,y)
         return self.signature
