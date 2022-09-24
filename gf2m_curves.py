@@ -18,6 +18,7 @@ class Sect571r1:
                   0x037BF27342DA639B6DCCFFFEB73D69D78C6C27A6009CBBCA1980F8533921E8A684423E43BAB08A576291AF8F461BB2A8B3531D2F0485C19B16E2F1516E23DD3C1A4827AF1B8AC15B)
         self.h = 0x02
 
+# Integer to Polynomial
 def int_to_poly(x:int):
     bits = bin(x)[2:]
     lenbits = len(bits)
@@ -27,12 +28,14 @@ def int_to_poly(x:int):
             poly.add(lenbits-i)
     return poly
 
+# Polynomial to Integer
 def poly_to_int(x:list):
     y = [0]*(max(x))
     for i in range(len(x)):
         y[x[i]-1] = 1
     return int(str(y)[1:-1].replace(', ', '')[::-1],2)
 
+# Add 2 Polynomials in any Galois Field
 def add_poly(x:set, y:set):
     x = set(x)
     y = set(y)
@@ -44,24 +47,35 @@ def add_poly(x:set, y:set):
     poly = sorted(x|y, reverse=True)
     return poly
 
+# Polynomial Galois Field Modulo
 def poly_mod_gf2m(x, f):
     while max(x) >= max(f):
         div = max(x) - max(f)
         mod = [] 
         for i in f:
             mod.append(i+div)
-        print("poly:\t", mod)
         x = add_poly(x, mod)
     return x
 
-x=0b1100
-y=0b0110
-for i in range(1, 16):
-    print(bin(poly_to_int(list(poly_mod_gf2m(int_to_poly(2**i), {5,2,1}))))[2:].zfill(4))
-raise Exception()
-value = add_poly(int_to_poly(x),int_to_poly(y))
+# polynomial multiplication in Galois Field 2^m
+def poly_mul_gf2m(x, y, f):
+    poly = set()
+    for i in y:
+        for j in x:
+            ij = i+j-1
+            if ij in poly:
+                poly.remove(ij)
+            else:
+                poly.add(ij)
+    poly = poly_mod_gf2m(poly,f)
+    return poly
+    
 
-raise Exception(poly_mod(value, [5,2,1], 16))
+# convert to Galois Field 2^m Element
+def to_gf2m_e(x, f):
+    return list(poly_mod_gf2m(int_to_poly(x), f))
+
+raise Exception(poly_mul_gf2m([4,3,1],[4,1],{5,2,1}))
 
 # from https://www.cs.miami.edu/home/burt/learning/Csc609.142/ecdsa-cert.pdf
 def gf2m_point_add(P, Q, q, m, a):
@@ -69,7 +83,7 @@ def gf2m_point_add(P, Q, q, m, a):
     x3 = (lambda_**2%q + lambda_ + P[0] + Q[0] + a)%q
     y3 = lambda_*(P[0] + x3) + x3 + P[1]
     return (x3,y3&q)
-raise Exception(gf2m_point_add((6,8),(3,13), 2**4, 4, 1))
+# raise Exception(gf2m_point_add((6,8),(3,13), 2**4, 4, 1))
 
 class GF_2m_Weierstrass:
     def __init__(self, curve):
