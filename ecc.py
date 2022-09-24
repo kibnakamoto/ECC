@@ -27,12 +27,15 @@ def poly_mod(a,f,p):
     lenf = len(f)
     if lenf < 2:
         raise ValueError("f(x) smaller than 2")
-    
+    looped = False
     while len(a) >= lenf:
         if a[-1] != 0:
             for i in range(lenf,1,-1):
                 a[-i] = (a[-i]-a[-1]*f[-i]) % p
         a = a[0:len(a)-1]
+        looped = True
+    if a[0] != 0 and looped:
+        raise ValueError("Polynomial Modulo Error")
     return a
 
 # calculatate the jacobi symbol
@@ -180,10 +183,7 @@ def hkdf(key,salt=None,hashf=sha256,hashlen=32,blocklen=64,inf=b"",
 #  conversion specified in ANSI X9.62
 class Ecdsa:
     def __init__(self, curve=curves.Secp521r1):
-        if hasattr(curve,"p"): # if prime curve
-            self.q = curve.p
-        else:
-            return NotImplemented # binary curves
+        self.q = curve.p
         self.G = curve.G
         self.n = curve.n
         self.a = curve.a
