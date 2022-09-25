@@ -94,7 +94,10 @@ class GF2m:
     
     # Addition in Galois Field 2^m
     def __add__(self, other):
-        obj = GF2m(self.intelem^other.intelem, self.f)
+        if isinstance(other, GF2m):
+            obj = GF2m((self.intelem+other.intelem)%self.q, self.f, self.q)
+        else:
+            obj = GF2m((self.intelem+other)%self.q, self.f, self.q)
         return obj
 
     def __iadd__(self, other):
@@ -104,7 +107,7 @@ class GF2m:
     
     # Polynomial multiplication in Galois Field 2^m
     def __mul__(self, other):
-        obj = GF2m(poly_mul_gf2m(self.e, other.e, self.f), self.f)
+        obj = GF2m(poly_to_int(poly_mul_gf2m(self.e, other.e, self.f)), self.f, self.q)
         return obj
     
     # Polynomial multiplication on Galois Field in 2^m
@@ -117,18 +120,18 @@ class GF2m:
         integer = deepcopy(self.e) # actually a poly not int
         for i in range(x):
             integer = poly_mul_gf2m(integer, integer, self.f)
-        obj = GF2m(poly_to_int(integer), self.f)
+        obj = GF2m(poly_to_int(list(integer)), self.f, self.q)
         return obj
 
     def __ipow__(self, other):
         for i in range(self.e):
-            self.e = poly_myl_gf2m(self.e, self.e, f)
+            self.e = poly_myl_gf2m(self.e, self.e, self.f)
         self.intelem = poly_to_int(self.e)
         return self
     
     # Polynomial Modulo f(x)
     def __mod__(self, f):
-        obj = GF2m(poly_mod_gf2m(self.e, f))
+        obj = GF2m(poly_mod_gf2m(self.e, f), f)
         return obj
     
     # Polynomial Modulo f(x)
@@ -139,12 +142,12 @@ class GF2m:
     
     # modular inverse in Galois Field 2^m
     def __invert__(self, other):
-        obj = GF2m(pow(self.intelem, -1, self.q), self.f)
+        obj = GF2m(pow(self.intelem, -1, self.q), self.f, self.q)
         return obj
      
     # Galois Field Division
     def __floordiv__(self, other):
-        obj = GF2m(self.intelem*pow(other.intelem, -1, self.q), self.f)
+        obj = GF2m(self.intelem*pow(other.intelem, -1, self.q), self.f, self.q)
         return obj
     
     # Galois Field Division
@@ -162,7 +165,7 @@ class GF2m:
     # <=
     def __le__(self, other):
         return max(self.e) <= max(other.e)
-
+ 
     # >
     def __gt__(self, other):
         return max(self.e) > max(other.e)
@@ -179,8 +182,9 @@ class GF2m:
     def __ne__(self, other):
         return self.e != other.e
     
-    def __call__(self):
-        return f"polynomial:\t{self.e}\ninteger:\t{self.integer}\nf(x):\t{self.f}\nq:\t{self.q}"
+    def __repr__(self):
+        return "polynomial:\t% s\ninteger:\t% s\nf(x):\t% s\nq:\t% s" % (self.e, self.intelem, 
+                                                                           self.f, self.q)
 
 # from https://www.cs.miami.edu/home/burt/learning/Csc609.142/ecdsa-cert.pdf
 def gf2m_point_add(P, Q, q, f, a, intformat=True):
@@ -189,7 +193,10 @@ def gf2m_point_add(P, Q, q, f, a, intformat=True):
         y1 = GF2m(P[1], f, q)
         x2 = GF2m(Q[0], f, q)
         y2 = GF2m(Q[1], f, q)
-    lambda_ = (y1 + y2)
+    lambda_ = (y1+y2) // (x1+x2)
+    x3 = lambda_**2 + lambda_ + x1 + x2 + a
+    y3 = lambda_*(x1+x3) + x3 + y1
+    return (x3, y3)
 raise Exception(gf2m_point_add((6,8),(3,13), 19, [5,2,1], 1))
 
 class GF_2m_Weierstrass:
