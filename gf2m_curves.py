@@ -10,7 +10,9 @@ class GF2mValueError(ValueError):
 
 class Sect571r1:
     def __init__(self):
-        self.q = [571, 10, 5, 2, 1]
+        self.f = [571, 10, 5, 2, 1]
+        self.m = 571
+        self.q = 0x040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000213
         self.n = 0x03FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE661CE18FF55987308059B186823851EC7DD9CA1161DE93D5174D66E8382E9BB2FE84E47
         self.a = 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001
         self.b = 0x02F40E7E2221F295DE297117B7F3D62F5C6A97FFCB8CEFF1CD6BA8CE4A9A18AD84FFABBD8EFA59332BE7AD6756A66E294AFD185A78FF12AA520E4DE739BACA0C7FFEFF7F2955727A
@@ -69,21 +71,126 @@ def poly_mul_gf2m(x, y, f):
                 poly.add(ij)
     poly = poly_mod_gf2m(poly,f)
     return poly
-    
 
 # convert to Galois Field 2^m Element
 def to_gf2m_e(x, f):
     return list(poly_mod_gf2m(int_to_poly(x), f))
 
-raise Exception(poly_mul_gf2m([4,3,1],[4,1],{5,2,1}))
+# addition in GF(2^m) modulo f(x)
+def gf2m_add(x, y, f):
+    return poly_mod_gf2m(add_poly(x,y), f)
+
+# Operations in the Galois Field 2^m
+class GF2m:
+    def __init__(self, elem:int, f:list, q:int=None):
+        self.f = f
+        self.e = to_gf2m_e(elem, f)
+        self.intelem = poly_to_int(self.e)
+
+        if q == None:
+            self.q = poly_to_int(self.f)
+        else:
+            self.q = q
+    
+    # Addition in Galois Field 2^m
+    def __add__(self, other):
+        obj = GF2m(self.intelem^other.intelem, self.f)
+        return obj
+
+    def __iadd__(self, other):
+        self.intelem ^= other.intelem
+        self.e = to_gf2m_e(self.intelem, self.f)
+        return self
+    
+    # Polynomial multiplication in Galois Field 2^m
+    def __mul__(self, other):
+        obj = GF2m(poly_mul_gf2m(self.e, other.e, self.f), self.f)
+        return obj
+    
+    # Polynomial multiplication on Galois Field in 2^m
+    def __imul__(self, other):
+        self.e = poly_mul_gf2m(self.e, other.e, self.f)
+        return self
+    
+    # get the power of a number as a polynomial, not for large numbers since it uses loop
+    def __pow__(self, x):
+        integer = deepcopy(self.e) # actually a poly not int
+        for i in range(x):
+            integer = poly_mul_gf2m(integer, integer, self.f)
+        obj = GF2m(poly_to_int(integer), self.f)
+        return obj
+
+    def __ipow__(self, other):
+        for i in range(self.e):
+            self.e = poly_myl_gf2m(self.e, self.e, f)
+        self.intelem = poly_to_int(self.e)
+        return self
+    
+    # Polynomial Modulo f(x)
+    def __mod__(self, f):
+        obj = GF2m(poly_mod_gf2m(self.e, f))
+        return obj
+    
+    # Polynomial Modulo f(x)
+    def __imod__(self, f):
+        self.e = poly_mod_gf2m(self.e, f)
+        self.intelem = poly_to_int(self.e)
+        return self
+    
+    # modular inverse in Galois Field 2^m
+    def __invert__(self, other):
+        obj = GF2m(pow(self.intelem, -1, self.q), self.f)
+        return obj
+     
+    # Galois Field Division
+    def __floordiv__(self, other):
+        obj = GF2m(self.intelem*pow(other.intelem, -1, self.q), self.f)
+        return obj
+    
+    # Galois Field Division
+    def __ifloordiv__(self, other):
+        self.intelem = self.intelem*pow(other.intelem, -1, self.q)
+        self.e = int_to_poly(self.intelem)
+        return self
+    
+    # Boolean Comparison Operators
+
+    # <
+    def __lt__(self, other):
+        return max(self.e) < max(other.e)
+    
+    # <=
+    def __le__(self, other):
+        return max(self.e) <= max(other.e)
+
+    # >
+    def __gt__(self, other):
+        return max(self.e) > max(other.e)
+
+    # >=
+    def __ge__(self, other):
+        return max(self.e) >= max(other.e)
+    
+    # ==
+    def __eq__(self, other):
+        return self.e == other.e
+    
+    # !=
+    def __ne__(self, other):
+        return self.e != other.e
+    
+    def __call__(self):
+        return f"polynomial:\t{self.e}\ninteger:\t{self.integer}\nf(x):\t{self.f}\nq:\t{self.q}"
 
 # from https://www.cs.miami.edu/home/burt/learning/Csc609.142/ecdsa-cert.pdf
-def gf2m_point_add(P, Q, q, m, a):
-    lambda_ = ((P[1] + Q[1])*pow((P[0] + Q[0]),-1, q))%q
-    x3 = (lambda_**2%q + lambda_ + P[0] + Q[0] + a)%q
-    y3 = lambda_*(P[0] + x3) + x3 + P[1]
-    return (x3,y3&q)
-# raise Exception(gf2m_point_add((6,8),(3,13), 2**4, 4, 1))
+def gf2m_point_add(P, Q, q, f, a, intformat=True):
+    if intformat: # if input is integer and not polynomial
+        x1 = GF2m(P[0], f, q)
+        y1 = GF2m(P[1], f, q)
+        x2 = GF2m(Q[0], f, q)
+        y2 = GF2m(Q[1], f, q)
+    lambda_ = (y1 + y2)
+raise Exception(gf2m_point_add((6,8),(3,13), 19, [5,2,1], 1))
 
 class GF_2m_Weierstrass:
     def __init__(self, curve):
