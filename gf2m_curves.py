@@ -197,13 +197,23 @@ class GF2m:
     def __invert__(self):
         obj = GF2m(mod_inv_gf2m(self.e, self.f), self.f, self.q)
         return obj
+
+    # Binary Galois Field Polynomial Division
+    def __truediv__(self, other):
+        obj = GF2m(poly_div(self.e, other.e), self.f, self.q)
+        return obj
+
+    # Binary Galois Field Polynomial Division
+    def __itruediv__(self, other):
+        self.e = poly_div(self.e, other.e)
+        return self
      
-    # Galois Field Division
+    # Galois Field Division using Modular Inverse
     def __floordiv__(self, other):
         obj = GF2m(poly_mul_gf2m(self.e, mod_inv_gf2m(other.e, self.f), self.f), self.f, self.q)
         return obj
     
-    # Galois Field Division
+    # Galois Field Division using Modular Inverse
     def __ifloordiv__(self, other):
         self.e = poly_mul_gf2m(self.e, mod_inv_gf2m(other.e, self.f), self.f)
         return self
@@ -246,6 +256,7 @@ class GF2m:
 # raise Exception(GF2m(8, [5,2,1],19) + GF2m(13, [5,2,1],19)) # addition test
 # raise Exception(GF2m(13, [5,2,1],19) * GF2m(14, [5,2,1],19)) # multiplication test
 # raise Exception(~GF2m(13, [5,2,1],19)) # modular inverse test
+raise Exception(GF2m(11,[5,2,1], 19) * ~GF2m(11, [5,2,1], 19))
 
 
 # from https://www.cs.miami.edu/home/burt/learning/Csc609.142/ecdsa-cert.pdf
@@ -254,8 +265,9 @@ def gf2m_point_add(P, Q, q, f):
     y1 = GF2m(P[1], f, q)
     x2 = GF2m(Q[0], f, q)
     y2 = GF2m(Q[1], f, q)
-    lambda_ = (y1+y2) // (x1+x2)
-    x3 = lambda_**2 + lambda_ + x1 + x2 + 4 # a = 4, a = alhpa^4, a = 0b0011
+    lambda_ =  (y1+y2) / (x1+x2)
+    print(f"lambda: {lambda_}")
+    x3 = lambda_**2 + lambda_ + x1 + x2 + GF2m([2,1], f, q) # a = 4, a = alhpa^4, a = 0b0011
     y3 = lambda_*(x1+x3) + x3 + y1
     return (x3, y3)
 
