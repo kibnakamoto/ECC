@@ -9,6 +9,7 @@ class GF2mValueError(ValueError):
    pass 
 
 class Sect571r1:
+    """ default class constructor """
     def __init__(self):
         self.f = [572, 11, 6, 3, 1]
         self.m = 571
@@ -32,8 +33,11 @@ def int_to_poly(x:int):
 
 # Polynomial to Integer
 def poly_to_int(x:list):
-    y = [0]*(max(x))
     x = list(x)
+    if len(x) == 1:
+        return x[0]
+    else:
+        y = [0]*max(x)
     for i in range(len(x)):
         y[x[i]-1] = 1
     return int(str(y)[1:-1].replace(', ', '')[::-1],2)
@@ -50,10 +54,12 @@ def add_poly(x:set, y:set):
     poly = x|y
     if not poly:
         poly.add(0)
+    else:
+        poly.discard(0)
     return poly
 
 # Polynomial Galois Field Modulo
-def poly_mod_gf2m(x, f):
+def poly_mod_gf2m(x:set, f:set):
     maxf = max(f) 
     if not x:
         x.add(0)
@@ -63,7 +69,7 @@ def poly_mod_gf2m(x, f):
         for i in f:
             mod.append(i+div)
         x = add_poly(x, mod)
-        if not x: # if x is empty, add zero 
+        if not x: 
             x.add(0)
     return x
 
@@ -71,6 +77,8 @@ def poly_div(x:set, f:set):
     if not x:
         x.add(0)
 
+    if not f:
+        f.add(0)
     maxx = max(x)
     maxf = max(f)
     div = maxx - maxf
@@ -80,6 +88,8 @@ def poly_div(x:set, f:set):
     x = add_poly(x, mod)
     if not x:
         x.add(0)
+    else:
+        x.discard(0) # added later since value is changed a lot by this
     return x
 
 # GF(2^m) polynomial multiplication without modulo
@@ -92,6 +102,8 @@ def poly_mul_nm(x:set,y:set):
                 poly.remove(ij)
             else:
                 poly.add(ij)
+    if poly:
+        poly.discard(0)
     return poly
 
 # polynomial multiplication in Galois Field 2^m
@@ -108,52 +120,41 @@ def to_gf2m_e(x, f):
 def gf2m_add(x:set, y:set, f:set):
     return poly_mod_gf2m(add_poly(x,y), f)
 
-
-#function inverse(a, p)
-#    t := 0;     newt := 1
-#    r := p;     newr := a
-#
-#    while newr ≠ 0 do
-#        quotient := r div newr
-#        (r, newr) := (newr, r − quotient × newr)
-#        (t, newt) := (newt, t − quotient × newt)
-#
-#    if degree(r) > 0 then 
-#        return "Either p is not irreducible or a is a multiple of p"
-#
-#    return (1/r) × t
-
+# modular inverse of a Binary Galois Field (GF 2^m) Polynomial
+# TODO: debug
 def mod_inv_gf2m(a:set, f:set):
     t = {0}
     newt = {1}
     r = f
     newr = a
     while newr != {0}:
-        quo = poly_mod_gf2m(r, newr)
-        r, newr = newr, add_poly(r, poly_mul_gf2m(quo, newr, f))
-        t, newt = newt, add_poly(t, poly_mul_gf2m(quo, newt, f))
-    return poly_mul_gf2m(poly_mod_gf2m({1}, r), t, f)
+        quo = poly_div(r, newr)
+        r, newr = newr, gf2m_add(poly_div({1}, r), poly_mul_gf2m(quo, newr, f), f)
+        t, newt = newt, gf2m_add(poly_div({1}, t), poly_mul_gf2m(quo, newt, f), f)
+        print(f"q: {quo}\tr: {r}\tnewr: {newr}\tnewt: {newt}")
+    return poly_mul_gf2m(poly_div({1}, r), t, f)
+raise Exception(mod_inv_gf2m({3,1}, {5,2,1}))
+raise Exception(poly_mul_gf2m(mod_inv_gf2m({3,1}, {5,2,1}), {3,1}, {5,2,1}))
+
+def poly_div_gf2m(a:set,b:set, f:set):
+    return poly_mul_gf2m(a, mod_inv_gf2m(b, f), f)
 
 # Operations in the Galois Field 2^m
 class GF2m:
-    def __init__(self, elem=None, f:list=None, q:int=None):
+    """ default class constructor """
+    def __init__(self, elem=None, f:list=None):
         self.f = f
         if isinstance(elem, int):
             self.e = set(to_gf2m_e(elem, f))
         else:
             self.e = set(elem) # if elem is not int, it is already a polynomial
-        
-        if q == None:
-            self.q = poly_to_int(self.f)
-        else:
-            self.q = q
     
     # Addition in Galois Field 2^m
     def __add__(self, other):
         if isinstance(other, GF2m):
-            obj = GF2m(gf2m_add(self.e, other.e, self.f), self.f, self.q)
+            obj = GF2m(gf2m_add(self.e, other.e, self.f), self.f)
         else:
-            obj = GF2m(gf2m_add(self.e, to_gf2m_e(other, self.f), self.f), self.f, self.q)
+            obj = GF2m(gf2m_add(self.e, to_gf2m_e(other, self.f), self.f), self.f)
         return obj
 
     def __iadd__(self, other):
@@ -162,7 +163,7 @@ class GF2m:
     
     # Polynomial multiplication in Galois Field 2^m
     def __mul__(self, other):
-        obj = GF2m(poly_mul_gf2m(self.e, other.e, self.f), self.f, self.q)
+        obj = GF2m(poly_mul_gf2m(self.e, other.e, self.f), self.f)
         return obj
     
     # Polynomial multiplication on Galois Field in 2^m
@@ -172,15 +173,17 @@ class GF2m:
     
     # get the power of a number as a polynomial, not for large numbers since it uses loop
     def __pow__(self, x):
-        integer = deepcopy(self.e) # actually a poly not int
+        integer = self.e # actually a poly not int
         for i in range(x):
             integer = poly_mul_gf2m(integer, integer, self.f)
-        obj = GF2m(list(integer), self.f, self.q)
+        obj = GF2m(integer, self.f)
         return obj
 
-    def __ipow__(self, other):
-        for i in range(self.e):
-            self.e = poly_mul_gf2m(self.e, self.e, self.f)
+    def __ipow__(self, x):
+        integer = self.e # actually a poly not int
+        for i in range(x):
+            integer = poly_mul_gf2m(integer, integer, self.f)
+        self.e = integer
         return self
     
     # Polynomial Modulo f(x)
@@ -195,12 +198,15 @@ class GF2m:
     
     # modular inverse in Galois Field 2^m
     def __invert__(self):
-        obj = GF2m(mod_inv_gf2m(self.e, self.f), self.f, self.q)
+        #self.e.discard(0) 
+        #tmp = mod_inv_gf2m(self.e, self.f)
+        #tmp.discard(0)
+        obj = GF2m(pow(poly_to_int(self.e), -1, poly_to_int(self.f)), self.f)
         return obj
 
     # Binary Galois Field Polynomial Division
     def __truediv__(self, other):
-        obj = GF2m(poly_div(self.e, other.e), self.f, self.q)
+        obj = GF2m(poly_div(self.e, other.e), self.f)
         return obj
 
     # Binary Galois Field Polynomial Division
@@ -210,12 +216,12 @@ class GF2m:
      
     # Galois Field Division using Modular Inverse
     def __floordiv__(self, other):
-        obj = GF2m(poly_mul_gf2m(self.e, mod_inv_gf2m(other.e, self.f), self.f), self.f, self.q)
+        obj = GF2m(poly_div_gf2m(self.e, other.e, self.f), self.f)
         return obj
     
     # Galois Field Division using Modular Inverse
     def __ifloordiv__(self, other):
-        self.e = poly_mul_gf2m(self.e, mod_inv_gf2m(other.e, self.f), self.f)
+        self.e = poly_div_gf2m(self.e, other.e, self.f)
         return self
     
     # Boolean Comparison Operators
@@ -245,35 +251,49 @@ class GF2m:
         return self.e != other.e
     
     def __repr__(self):
-        return "polynomial:\t% s\nf(x):\t% s\nq:\t% s" % (self.e, 
-                self.f, self.q)
+        return "polynomial:\t% s\nf(x):\t% s" % (self.e, self.f)
 
-# TEST finding GF(2^m)
+# TEST finding GF(2^m) elements
 # for i in range(1,16):
 #     h = to_gf2m_e(i, [5,2,1])
 #     conv = poly_to_int(h)
 #     print(h, i, conv)
-# raise Exception(GF2m(8, [5,2,1],19) + GF2m(13, [5,2,1],19)) # addition test
-# raise Exception(GF2m(13, [5,2,1],19) * GF2m(14, [5,2,1],19)) # multiplication test
-# raise Exception(~GF2m(13, [5,2,1],19)) # modular inverse test
-raise Exception(GF2m(11,[5,2,1], 19) * ~GF2m(11, [5,2,1], 19))
 
+# raise Exception(GF2m(8, [5,2,1]) + GF2m(13, [5,2,1])) # addition test
+# raise Exception(GF2m(13, [5,2,1]) * GF2m(14, [5,2,1])) # multiplication test
+# raise Exception(~GF2m(13, [5,2,1])) # modular inverse test
+#raise Exception(GF2m(11,[5,2,1]) // GF2m(11, [5,2,1])) # modular inverse test 2
+#raise Exception(GF2m(11,[5,2,1]) * ~GF2m(11, [5,2,1])) # modular inverse test 3
+################ ALL ARITHMETIC OPERATIONS TESTED ABOVE ARE CORRECT
 
 # from https://www.cs.miami.edu/home/burt/learning/Csc609.142/ecdsa-cert.pdf
-def gf2m_point_add(P, Q, q, f):
-    x1 = GF2m(P[0], f, q)
-    y1 = GF2m(P[1], f, q)
-    x2 = GF2m(Q[0], f, q)
-    y2 = GF2m(Q[1], f, q)
-    lambda_ =  (y1+y2) / (x1+x2)
+def gf2m_point_add(P, Q, f):
+    x1 = GF2m(P[0], f)
+    y1 = GF2m(P[1], f)
+    x2 = GF2m(Q[0], f)
+    y2 = GF2m(Q[1], f)
+    lambda_ =  (y1+y2) // (x1+x2)
     print(f"lambda: {lambda_}")
-    x3 = lambda_**2 + lambda_ + x1 + x2 + GF2m([2,1], f, q) # a = 4, a = alhpa^4, a = 0b0011
+    x3 = lambda_**2 + lambda_ + x1 + x2 + GF2m([2,1], f) # a = 4, a = alhpa^4, a = 0b0011
     y3 = lambda_*(x1+x3) + x3 + y1
     return (x3, y3)
 
-raise Exception(gf2m_point_add((6,8),(3,13), 19, [5,2,1]))
+def gf2m_point_double(P, f):
+    x1s = GF2m(P[0], f)**2
+    x1 = GF2m(P[0], f)
+    y1 = GF2m(P[1], f)
+    b = GF2m(1, f)
+    x3 = x1s + b / x1s
+    y3 = x1s + (x1 + y1/x1)*x3 + x3
+    return (x3, y3)
+
+raise Exception(gf2m_point_add((6,8),(3,13), [5,2,1]))
+#print(GF2m(10, [5,2,1]))
+#print(GF2m(8, [5,2,1]))
+raise Exception(gf2m_point_double((6,8), [5,2,1]))
 
 class GF_2m_Weierstrass:
+    """ default class constructor """
     def __init__(self, curve):
         self.curve = curve
     
