@@ -54,7 +54,7 @@ def add_poly(x:set, y:set):
     poly = x|y
     if not poly:
         poly.add(0)
-    else:
+    else: # causes infinite loop with repetatition values
         poly.discard(0)
     return poly
 
@@ -73,6 +73,8 @@ def poly_mod_gf2m(x:set, f:set):
             x.add(0)
     return x
 
+############################ THE PROBLEM MIGHT BE WITH NEGATIVE VALUE CALCULATIONS
+
 def poly_div(x:set, f:set):
     if not x:
         x.add(0)
@@ -81,7 +83,10 @@ def poly_div(x:set, f:set):
         f.add(0)
     maxx = max(x)
     maxf = max(f)
-    div = maxx - maxf
+    if maxx > 0:
+        div = maxx - maxf
+    else:
+        div = maxx + maxf
     mod = []
     for i in f:
         mod.append(i+div)
@@ -95,9 +100,16 @@ def poly_div(x:set, f:set):
 # GF(2^m) polynomial multiplication without modulo
 def poly_mul_nm(x:set,y:set):
     poly = set()
+    if x:
+        x.discard(0)
+    if y:
+        y.discard(0)
     for i in y:
         for j in x:
-            ij = i+j-1
+            if i < 0: # for negative polynomials
+                ij = i-j-1
+            else:
+                ij = i+j-1
             if ij in poly:
                 poly.remove(ij)
             else:
@@ -132,8 +144,10 @@ def mod_inv_gf2m(a:set, f:set):
         r, newr = newr, gf2m_add(poly_div({1}, r), poly_mul_gf2m(quo, newr, f), f)
         t, newt = newt, gf2m_add(poly_div({1}, t), poly_mul_gf2m(quo, newt, f), f)
         print(f"q: {quo}\tr: {r}\tnewr: {newr}\tnewt: {newt}")
+    return poly_mul_gf2m(r, t, f)
     return poly_mul_gf2m(poly_div({1}, r), t, f)
 raise Exception(mod_inv_gf2m({3,1}, {5,2,1}))
+raise Exception(poly_mul_gf2m({3,1}, {3}, {5,2,1}))
 raise Exception(poly_mul_gf2m(mod_inv_gf2m({3,1}, {5,2,1}), {3,1}, {5,2,1}))
 
 def poly_div_gf2m(a:set,b:set, f:set):
