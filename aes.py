@@ -307,6 +307,8 @@ class Aes:
         if add_del != None:
             if len(substr[len(substr)-1]) != 16:
                 substr[len(substr)-1]+='1'
+            else:
+                substr.append('1')
         substr[len(substr)-1] = substr[len(substr)-1].ljust(16,'0')
         
         # xor first block with iv if in CBC mode
@@ -346,7 +348,7 @@ class Aes:
             tmp_str += final_val[16:]
             tmp_str = list(tmp_str)
             final_val = ''.join(tmp_str)
-        
+
         # remove final delimeter '1'
         if rm_del != None:
             tmp_val = final_val.rsplit('1', 1)
@@ -358,8 +360,10 @@ class Aes:
             except IndexError:
                 final_val = tmp_val[0]
            
-            if len(final_val)%16 == 0 and final_val[15] == '1':
-                final_val[15] = deepcopy(final_val[:14])
+#            if len(final_val)%16 == 0 and final_val[15] == '1':
+#                print(final_val)
+#                final_val = final_val[:-1]
+#                print(final_val)
         return final_val
 
 class Aes256:
@@ -378,12 +382,7 @@ class Aes256:
         else:
             self.key = key
         
-        # remove delimeter in decryption only if length isn't
-        # already a multiple of 16
-        if len(inp)%16 != 0:
-            self.delm = delm
-        else:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
@@ -413,12 +412,7 @@ class Aes192:
         else:
             self.key = key
         
-        # remove delimeter in decryption only if length isn't
-        # already a multiple of 16
-        if len(inp)%16 != 0:
-            self.delm = delm
-        else:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
@@ -448,12 +442,7 @@ class Aes128:
         else:
             self.key = key
         
-        # remove delimeter in decryption only if length isn't
-        # already a multiple of 16
-        if len(inp)%16 != 0:
-            self.delm = delm
-        else:
-            self.delm = None
+        self.delm = delm
         return self.aes.multi_block_process_enc(inp,self.key,self.delm)
     
     def decrypt(self,inp,key=None,delm=None):
