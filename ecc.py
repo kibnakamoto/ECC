@@ -198,19 +198,13 @@ class Ecdsa:
             if signature[i] == 0 or signature[i] > self.n:
                 raise ValueError("signature is zero or bigger than n")
         
-        x = deepcopy(signature[0])
-        
-        # while x is not equal to Public key of sender
         for i in range(self.h):
+            x = (signature[0] + i*self.n)%self.q
             # x,y is on the curve, modular_sqrt is correct
             y = modular_sqrt((pow(x,3,self.q) + self.a*x +
-                              self.b+self.q)%self.q,self.q)
+                              self.b),self.q)
             if y%2 == 0:
                 y = self.q-y
-            if y**2%self.q == (pow(x,3,self.q) + self.a*x + self.b)%self.q:
-                if curves.montgomery_ladder((x,y),self.n,self.q,self.a) == (0,1):
-                    break
-            x = (x + self.n)%self.n
 
         rinv = pow(x,-1,self.n)
         e_g = curves.montgomery_ladder(self.G, -m_hash%self.n, self.q, self.a)
