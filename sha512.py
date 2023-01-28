@@ -41,7 +41,7 @@ class Sha512:
         if isinstance(inp,int):
             inp = str(inp)
         elif isinstance(inp,bytes):
-            inp = str(inp)
+            inp = inp.decode('utf-8')
         
         length = len(inp)
         bitlen = length<<3
