@@ -1,3 +1,2 @@
 TODO: define GF(2^m) curves using polynomial multiplication and modulo
 TODO: define CMAC (Chiper-based Message Authentication Code)
-

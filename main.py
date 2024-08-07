@@ -56,11 +56,11 @@ print("Bobs\'s private key:\t", bob.pri_k)
 print("Alice\'s public key:\t", alice.pub_k)
 print("Bobs\'s public key:\t", bob.pub_k)
 
-# get compressed points
-alice_pubk_comp = '0' + str(2 + alice.pub_k[1] % 2) + \
-                  str(hex(alice.pub_k[0])[2:])
-bob_pubk_comp = '0' + str(2 + bob.pub_k[1] % 2) + \
-                str(hex(bob.pub_k[0])[2:])
+# get compressed points (NOT SUPPORTED)
+# alice_pubk_comp = '0' + str(2 + alice.pub_k[1] % 2) + \
+#                   str(hex(alice.pub_k[0])[2:])
+# bob_pubk_comp = '0' + str(2 + bob.pub_k[1] % 2) + \
+#                 str(hex(bob.pub_k[0])[2:])
 
 # calculate shared secret
 # they are equal to each other, shared secret equals x coordinate
