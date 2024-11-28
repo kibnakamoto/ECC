@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ECCryptography
-Version: 0.0.3
+Version: 0.0.9
 Summary: Elliptic Curve Cryptography for public key encryption and ECDSA. Elliptic Cryptography Diffie Hellman Key Exchange with AES, and Sha512
 Author-email: Taha Canturk <kibnakanoto@protonmail.com>
 Project-URL: Homepage, https://github.com/kibnakamoto/ECC
@@ -8,9 +8,10 @@ Project-URL: Issues, https://github.com/kibnakamoto/ECC/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU General Public License (GPL)
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: numpy>=1.26.4
 
 # ECIES, ECDSA, HMAC, ECC Public Key Generation
 

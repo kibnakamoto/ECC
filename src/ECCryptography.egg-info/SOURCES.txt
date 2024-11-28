@@ -11,4 +11,5 @@ src/ECC/sha512.py
 src/ECCryptography.egg-info/PKG-INFO
 src/ECCryptography.egg-info/SOURCES.txt
 src/ECCryptography.egg-info/dependency_links.txt
+src/ECCryptography.egg-info/requires.txt
 src/ECCryptography.egg-info/top_level.txt
