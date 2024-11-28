@@ -3,9 +3,9 @@ from copy import deepcopy
 from collections import Counter
 from hashlib import sha256 # optional
 import secrets
-import curves
-from sha512 import *
-from aes import *
+from . import curves
+from .sha512 import *
+from .aes import *
 
 def poly_mul(a,b,p):
     alength,blength = len(a),len(b)

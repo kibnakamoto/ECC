@@ -1,0 +1,14 @@
+LICENSE
+README.md
+pyproject.toml
+src/ECC/__init__.py
+src/ECC/aes.py
+src/ECC/benchmark.py
+src/ECC/curves.py
+src/ECC/ecc.py
+src/ECC/gf2m_curves.py
+src/ECC/sha512.py
+src/ECCryptography.egg-info/PKG-INFO
+src/ECCryptography.egg-info/SOURCES.txt
+src/ECCryptography.egg-info/dependency_links.txt
+src/ECCryptography.egg-info/top_level.txt

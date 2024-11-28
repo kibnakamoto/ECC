@@ -7,10 +7,10 @@ import secrets
 import tracemalloc
 import string
 
-from curves import *
-from ecc import *
-from aes import *
-from sha512 import *
+from .curves import *
+from .ecc import *
+from .aes import *
+from .sha512 import *
 
 # generate list of random private keys
 def genrandkeylist(n,to):

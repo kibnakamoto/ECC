@@ -1,0 +1,18 @@
+[project]
+name = "ECCryptography"
+version = "0.0.3"
+authors = [
+  { name="Taha Canturk", email="kibnakanoto@protonmail.com" },
+]
+description = "Elliptic Curve Cryptography for public key encryption and ECDSA. Elliptic Cryptography Diffie Hellman Key Exchange with AES, and Sha512"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/kibnakamoto/ECC"
+Issues = "https://github.com/kibnakamoto/ECC/issues"

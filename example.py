@@ -1,10 +1,10 @@
 from hashlib import sha256 # for shared key
 import secrets
 
-from sha512 import *
-from aes import *
-from curves import *
-from ecc import *
+from ECC.sha512 import *
+from ECC.aes import *
+from ECC.curves import *
+from ECC.ecc import *
 # import benchmark
 
 # Elliptic Cryptography Diffie Hellman - Elliptic Cryptography Digital 
